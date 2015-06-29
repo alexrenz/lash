@@ -45,6 +45,9 @@ public class SequentialMode {
 	private Dfs gsm;
 
 	private SequentialGsmWwriter writer;
+	
+	final OpenObjectIntHashMap<String> cfs = new OpenObjectIntHashMap<String>();
+	final OpenObjectIntHashMap<String> dfs = new OpenObjectIntHashMap<String>();
 
 	public SequentialMode(GsmConfig config) throws IOException {
 		this.config = config;
@@ -86,17 +89,6 @@ public class SequentialMode {
 
 	}
 
-	private void encodeAndMine(String inputPath, String hierarchyPath) throws IOException, InterruptedException {
-
-		// TODO: error checks for hierarchy path
-
-		File hFile = new File(hierarchyPath);
-		processHierarchy(hFile);
-
-		File iFile = new File(inputPath);
-		processRecursively(iFile, false);
-	}
-
 	private void processHierarchy(File hFile) throws IOException {
 
 		FileInputStream fstream = new FileInputStream(hFile);
@@ -119,7 +111,7 @@ public class SequentialMode {
 			if (mine)
 				encodeAndMineSequences(file);
 			else
-				encodeSequences(file);
+				scanSequences(file);
 		} else {
 			File[] subdirs = file.listFiles();
 			for (File subdir : subdirs) {
@@ -129,22 +121,19 @@ public class SequentialMode {
 					if (mine)
 						encodeAndMineSequences(subdir);
 					else
-						encodeSequences(subdir);
+						scanSequences(subdir);
 			}
 		}
 
 	}
 
-	private void encodeSequences(File inputFile) throws IOException, InterruptedException {
+	private void scanSequences(File inputFile) throws IOException, InterruptedException {
 
 		FileInputStream fstream = new FileInputStream(inputFile);
 		DataInputStream in = new DataInputStream(fstream);
 		BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
 		String line;
-
-		final OpenObjectIntHashMap<String> cfs = new OpenObjectIntHashMap<String>();
-		final OpenObjectIntHashMap<String> dfs = new OpenObjectIntHashMap<String>();
 
 		// compute generalized f-list
 		while ((line = br.readLine()) != null) {
@@ -170,87 +159,6 @@ public class SequentialMode {
 			}
 		}
 		br.close();
-
-		List<String> temp = cfs.keys();
-		String[] terms = Arrays.copyOf(temp.toArray(), temp.toArray().length, String[].class);
-
-		// Remove parents with same frequency as children
-		for (int i = 0; i < terms.length; ++i) {
-			String term = terms[i];
-			String parent = parents.get(term);
-			if (term == null || parent == null)
-				continue;
-			while (cfs.get(term) == cfs.get(parent)) {
-				parents.put(term, parents.get(parent));
-				parent = parents.get(parent);
-				if (parent == null)
-					break;
-			}
-		}
-
-		// sort terms in descending order of their collection frequency
-		Arrays.sort(terms, new Comparator<String>() {
-			@Override
-			public int compare(String t, String u) {
-				return cfs.get(u) - cfs.get(t);
-			}
-		});
-
-		// assign term identifiers
-		for (int i = 0; i < terms.length; i++) {
-			tids.put(terms[i], (i + 1));
-		}
-
-		// Write dictionary
-		if (config.isKeepFiles()) {
-			String outputFileName = config.getKeepFilesPath();
-
-			File outFile = new File(outputFileName.concat("/" + "wc/part-r-00000"));
-
-			try {
-
-				OutputStream fstreamOutput = new FileOutputStream(outFile);
-
-				// Get the object of DataOutputStream
-				DataOutputStream out = new DataOutputStream(fstreamOutput);
-				BufferedWriter br1 = new BufferedWriter(new OutputStreamWriter(out));
-
-				// Perform the writing to the file
-				for (String term : terms) {
-					int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
-
-					br1.write(term + "\t" + cfs.get(term) + "\t" + dfs.get(term) + "\t" + tids.get(term) + "\t" + parentId + "\n");
-				}
-				br1.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-
-		// create ItemId to ParentId list
-		int[] parentIds = new int[terms.length + 1];
-		OpenIntObjectHashMap<String> itemIdToItemMap = new OpenIntObjectHashMap<String>();
-
-		for (String term : terms) {
-			int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
-			parentIds[tids.get(term)] = parentId;
-
-			itemIdToItemMap.put(tids.get(term), term);
-		}
-
-		// Initialize writer
-		writer.setItemIdToItemMap(itemIdToItemMap);
-		writer.setOutputPath(config.getOutputPath());
-
-		// Initialize taxonomy
-		Taxonomy taxonomy = new NytTaxonomy(parentIds);
-
-		// Mine sequences
-		gsm = new Dfs();
-		gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), taxonomy);
-		gsm.initialize();
-		processRecursively(new File(config.getInputPath()), true);
-
 	}
 
 	private void encodeAndMineSequences(File inputFile) throws IOException, InterruptedException {
@@ -315,8 +223,95 @@ public class SequentialMode {
 			gsm.mine(writer);
 
 		} else {
+			// TODO: error checks for hierarchy path
 
-			encodeAndMine(config.getInputPath(), config.getHierarchyPath());
+			// Process the hierarchy
+			File hFile = new File(config.getHierarchyPath());
+			processHierarchy(hFile);
+
+			// Read the input files to create the f-list
+			File iFile = new File(config.getInputPath());
+			processRecursively(iFile, false);
+			
+			List<String> temp = cfs.keys();
+			String[] terms = Arrays.copyOf(temp.toArray(), temp.toArray().length, String[].class);
+
+			// Remove parents with same frequency as children
+			for (int i = 0; i < terms.length; ++i) {
+				String term = terms[i];
+				String parent = parents.get(term);
+				if (term == null || parent == null)
+					continue;
+				while (cfs.get(term) == cfs.get(parent)) {
+					parents.put(term, parents.get(parent));
+					parent = parents.get(parent);
+					if (parent == null)
+						break;
+				}
+			}
+
+			// sort terms in descending order of their collection frequency
+			Arrays.sort(terms, new Comparator<String>() {
+				@Override
+				public int compare(String t, String u) {
+					return cfs.get(u) - cfs.get(t);
+				}
+			});
+
+			// assign term identifiers
+			for (int i = 0; i < terms.length; i++) {
+				tids.put(terms[i], (i + 1));
+			}
+
+			// Write dictionary
+			if (config.isKeepFiles()) {
+				String outputFileName = config.getKeepFilesPath();
+
+				File outFile = new File(outputFileName.concat("/" + "wc/part-r-00000"));
+
+				try {
+
+					OutputStream fstreamOutput = new FileOutputStream(outFile);
+
+					// Get the object of DataOutputStream
+					DataOutputStream out = new DataOutputStream(fstreamOutput);
+					BufferedWriter br1 = new BufferedWriter(new OutputStreamWriter(out));
+
+					// Perform the writing to the file
+					for (String term : terms) {
+						int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
+
+						br1.write(term + "\t" + cfs.get(term) + "\t" + dfs.get(term) + "\t" + tids.get(term) + "\t" + parentId + "\n");
+					}
+					br1.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			// create ItemId to ParentId list
+			int[] parentIds = new int[terms.length + 1];
+			OpenIntObjectHashMap<String> itemIdToItemMap = new OpenIntObjectHashMap<String>();
+
+			for (String term : terms) {
+				int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
+				parentIds[tids.get(term)] = parentId;
+
+				itemIdToItemMap.put(tids.get(term), term);
+			}
+
+			// Initialize writer
+			writer.setItemIdToItemMap(itemIdToItemMap);
+			writer.setOutputPath(config.getOutputPath());
+
+			// Initialize taxonomy
+			Taxonomy taxonomy = new NytTaxonomy(parentIds);
+
+			// Mine sequences
+			gsm = new Dfs();
+			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), taxonomy);
+			gsm.initialize();
+			processRecursively(new File(config.getInputPath()), true);
 
 		}
 
