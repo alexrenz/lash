@@ -3,6 +3,8 @@ package de.mpii.gsm.utils;
 
 import de.mpii.gsm.driver.GsmConfig;
 import de.mpii.gsm.utils.PrimitiveUtils;
+import de.mpii.gsm.utils.DirectedGraph;
+import de.mpii.gsm.utils.TopologicalSort;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -37,6 +39,8 @@ public class Dictionary {
 	protected ArrayList<Long> items = new ArrayList<Long>();
 	
 	protected int[] parentIds;
+	protected int[] parentsListPositions;
+	protected int[] parentsList;
 	
 	protected OpenIntObjectHashMap<String> itemIdToItemMap = new OpenIntObjectHashMap<String>();
 
@@ -45,7 +49,9 @@ public class Dictionary {
 	final OpenObjectIntHashMap<String> cfs = new OpenObjectIntHashMap<String>();
 	final OpenObjectIntHashMap<String> dfs = new OpenObjectIntHashMap<String>();
 
-	private HashMap<String, String> parents = new HashMap<String, String>();
+	private HashMap<String, ArrayList<String>> parents = new HashMap<String, ArrayList<String>>();
+	//private HashMap<String, String> parents = new HashMap<String, String>();
+	private HashMap<String, Integer> topologicalOrder = new HashMap<String, Integer>();
 	
 	private GsmConfig config;
 	
@@ -128,7 +134,8 @@ public class Dictionary {
 		String[] terms = Arrays.copyOf(temp.toArray(), temp.toArray().length, String[].class);
 
 		// Remove parents with same frequency as children
-		for (int i = 0; i < terms.length; ++i) {
+		// todo: remove -- not necessary anymore as we do a topological sort in processHierarchy()
+		/* for (int i = 0; i < terms.length; ++i) {
 			String term = terms[i];
 			String parent = parents.get(term);
 			if (term == null || parent == null)
@@ -139,33 +146,76 @@ public class Dictionary {
 				if (parent == null)
 					break;
 			}
-		}
+		} */
 
-		// sort terms in descending order of their collection frequency
+		// sort terms in descending order of their collection frequency and topological order
 		Arrays.sort(terms, new Comparator<String>() {
 			@Override
 			public int compare(String t, String u) {
-				return cfs.get(u) - cfs.get(t);
+				if(cfs.get(u) - cfs.get(t) != 0)
+					// 'larger' cfs first
+					return cfs.get(u) - cfs.get(t);
+				else
+					// 'smaller' order first
+					return  topologicalOrder.get(t) - topologicalOrder.get(u);
 			}
 		});
 
 		// assign term identifiers
 		for (int i = 0; i < terms.length; i++) {
 			tids.put(terms[i], (i + 1));
+			
+			// debug output -- TODO: remove
+			//System.out.println((i+1) + ": " + terms[i] + "\t\tcfs: " + cfs.get(terms[i]) + "\ttop: " + topologicalOrder.get(terms[i]));
 		}
 
 		
-
 		// create ItemId to ParentId list
 		parentIds = new int[terms.length + 1];
 		itemIdToItemMap = new OpenIntObjectHashMap<String>();
-
+		
+		// TODO: create new data structure to store multiple parents
 		for (String term : terms) {
-			int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
+			int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term).get(0));
 			parentIds[tids.get(term)] = parentId;
 
 			itemIdToItemMap.put(tids.get(term), term);
+			
 		}
+
+		// Store parents in two-array data structure: position list and parent list
+		IntArrayList tempParentsList = new IntArrayList();
+		int currentPosition = 0;
+		parentsListPositions = new int[terms.length+2]; // +1 as tids start with 1, other +1 for dummy element at the end
+		
+		for (int i=1; i<terms.length+1; i++) {
+
+			// New data structure
+			parentsListPositions[i] = currentPosition;
+			String term = terms[i-1];
+			if(parents.containsKey(term)) {
+				for(String parent : parents.get(term)) {
+					tempParentsList.add(tids.get(parent));
+					currentPosition++;
+				}
+			}
+		}
+		parentsList = tempParentsList.toArray(new int[tempParentsList.size()]);
+		
+		// Add dummy item at the end of the positions list to make access easier for the last item
+		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
+		
+		/* debug output
+		 * TODO: remove
+		for(String term: terms) {
+			System.out.print(term + ": ");
+			int tid = tids.get(term);
+			for(int i=parentsListPositions[tid]; i<parentsListPositions[tid+1]; i++) {
+				System.out.print(itemIdToItemMap.get(parentsList[i]) + " ");
+			}
+			System.out.println("");
+		}
+		*/
 	}
 	
 	private void processRecursively(File file) {
@@ -203,10 +253,12 @@ public class Dictionary {
 					String item = items[i].trim();
 	
 					wordCounts.adjustOrPutValue(item, +1, +1);
-	
+					
+					// TODO: increase count for multiple parents
+					// [temporarily, only first parent considered]
 					while (parents.get(item) != null) {
-						wordCounts.adjustOrPutValue(parents.get(item), +1, +1);
-						item = parents.get(item);
+						wordCounts.adjustOrPutValue(parents.get(item).get(0), +1, +1);
+						item = parents.get(item).get(0);
 					}
 				}
 	
@@ -228,13 +280,31 @@ public class Dictionary {
 			BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
 			String line;
+			
+			DirectedGraph<String> parentsGraph = new DirectedGraph<String>();
 
 			while ((line = br.readLine()) != null) {
 				String[] splits = line.split(config.getItemSeparator());
-				if (splits.length == 2)
-					parents.put(splits[0].trim(), splits[1].trim()); // TODO: check for DAGs
+				if (splits.length == 2) {
+					String item = splits[0].trim();
+					String parent = splits[1].trim();
+					if(!parents.containsKey(splits))
+						parents.put(item, new ArrayList<String>());
+					parents.get(item).add(parent);
+					
+					// TODO: cycle detection
+					parentsGraph.addNode(item);
+					parentsGraph.addNode(parent);
+					parentsGraph.addEdge(parent, item);
+				}
 			}
 			br.close();
+			
+			// Do a topological sort and store inverted list
+			List<String> sorted = TopologicalSort.sort(parentsGraph);
+			for(int i=0; i<sorted.size(); i++) {
+				topologicalOrder.put(sorted.get(i), i);
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
