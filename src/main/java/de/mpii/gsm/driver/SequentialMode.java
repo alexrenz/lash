@@ -81,14 +81,14 @@ public class SequentialMode {
 
 	
 
-	private void processRecursively(File file) throws IOException, InterruptedException {
+	private void processInputPathRecursively(File file) throws IOException, InterruptedException {
 		if (file.isFile()) {
 			encodeAndMineSequences(file);
 		} else {
 			File[] subdirs = file.listFiles();
 			for (File subdir : subdirs) {
 				if (subdir.isDirectory())
-					processRecursively(subdir);
+					processInputPathRecursively(subdir);
 				else if (subdir.isFile())
 					encodeAndMineSequences(subdir);
 			}
@@ -172,19 +172,11 @@ public class SequentialMode {
 			writer.setItemIdToItemMap(this.dictionary.getItemIdToItemMap());
 			writer.setOutputPath(config.getOutputPath());
 
-			// TODO: remove
-			// Initialize taxonomy
-			// Taxonomy taxonomy = new NytTaxonomy(this.dictionary.getParentIDs());
-
 			// Mine sequences
 			gsm = new Dfs();
 			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), dictionary);
 			gsm.initialize();
-			processRecursively(new File(config.getInputPath()));
-			
-			
-			// TODO: necessary?
-			dictionary.clear();
+			processInputPathRecursively(new File(config.getInputPath()));
 
 			gsm.mine(writer);
 

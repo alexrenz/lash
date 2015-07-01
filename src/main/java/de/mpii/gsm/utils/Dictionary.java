@@ -35,9 +35,6 @@ import org.apache.mahout.math.map.OpenObjectIntHashMap;
 
 public class Dictionary {
 	
-	// TODO: cleanup here
-	//protected int[] parentIds;
-	
 	//Combines itemId and support value in a long value
 	protected ArrayList<Long> items = new ArrayList<Long>();
 	
@@ -52,7 +49,7 @@ public class Dictionary {
 	final OpenObjectIntHashMap<String> dfs = new OpenObjectIntHashMap<String>();
 
 	private HashMap<String, ArrayList<String>> parents = new HashMap<String, ArrayList<String>>();
-	//private HashMap<String, String> parents = new HashMap<String, String>();
+	
 	private HashMap<String, Integer> topologicalOrder = new HashMap<String, Integer>();
 	
 	private GsmConfig config;
@@ -70,15 +67,8 @@ public class Dictionary {
 	}
 
 	public OpenIntObjectHashMap<String> getItemIdToItemMap() {
-		// TODO: revisit - good way to do this over get method (used in SequentialMode.java)
 		return itemIdToItemMap;
 	}
-	
-	/* TODO: remove
-	public int[] getParentIds() {
-		// TODO: revisit - good way to do this?
-		return parentIds;
-	} */
 	
 	public void load(Configuration conf, String fileName, int minSupport) throws IOException {
 		
@@ -140,21 +130,6 @@ public class Dictionary {
 		List<String> temp = cfs.keys();
 		String[] terms = Arrays.copyOf(temp.toArray(), temp.toArray().length, String[].class);
 
-		// Remove parents with same frequency as children
-		// todo: remove -- not necessary anymore as we do a topological sort in processHierarchy()
-		/* for (int i = 0; i < terms.length; ++i) {
-			String term = terms[i];
-			String parent = parents.get(term);
-			if (term == null || parent == null)
-				continue;
-			while (cfs.get(term) == cfs.get(parent)) {
-				parents.put(term, parents.get(parent));
-				parent = parents.get(parent);
-				if (parent == null)
-					break;
-			}
-		} */
-
 		// sort terms in descending order of their collection frequency and topological order
 		Arrays.sort(terms, new Comparator<String>() {
 			@Override
@@ -171,16 +146,11 @@ public class Dictionary {
 		// assign term identifiers
 		for (int i = 0; i < terms.length; i++) {
 			tids.put(terms[i], (i + 1));
-			
-			// debug output -- TODO: remove
-			//System.out.println((i+1) + ": " + terms[i] + "\t\tcfs: " + cfs.get(terms[i]) + "\ttop: " + topologicalOrder.get(terms[i]));
 		}
 
 		
-		// create ItemId to ParentId list
+		// create ItemId to item Map
 		itemIdToItemMap = new OpenIntObjectHashMap<String>();
-		
-		// TODO: create new data structure to store multiple parents
 		for (String term : terms) {
 			itemIdToItemMap.put(tids.get(term), term);
 		}
@@ -191,8 +161,6 @@ public class Dictionary {
 		parentsListPositions = new int[terms.length+2]; // +1 as tids start with 1, other +1 for dummy element at the end
 		
 		for (int i=1; i<terms.length+1; i++) {
-
-			// New data structure
 			parentsListPositions[i] = currentPosition;
 			String term = terms[i-1];
 			if(parents.containsKey(term)) {
@@ -207,31 +175,6 @@ public class Dictionary {
 		// Add dummy item at the end of the positions list to make access easier for the last item
 		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
 		
-		/* debug output
-		 * TODO: remove
-		for(String term: terms) {
-			System.out.print(term + ": ");
-			int tid = tids.get(term);
-			for(int i=parentsListPositions[tid]; i<parentsListPositions[tid+1]; i++) {
-				System.out.print(itemIdToItemMap.get(parentsList[i]) + " ");
-			}
-			System.out.println("");
-		}
-		*/
-		
-		
-		// create ItemId to ParentId list
-		// LEGACY TODO: remove
-		/* parentIds = new int[terms.length + 1];
-		itemIdToItemMap = new OpenIntObjectHashMap<String>();
-
-		for (String term : terms) {
-			int parentId = (!parents.containsKey(term) || parents.get(term).get(0) == null) ? 0 : tids.get(parents.get(term).get(0));
-			parentIds[tids.get(term)] = parentId;
-
-			itemIdToItemMap.put(tids.get(term), term);
-		}
-		*/
 	}
 	
 	private void processRecursively(File file) {
@@ -308,7 +251,6 @@ public class Dictionary {
 						parents.put(item, new ArrayList<String>());
 					parents.get(item).add(parent);
 					
-					// TODO: cycle detection
 					parentsGraph.addNode(item);
 					parentsGraph.addNode(parent);
 					parentsGraph.addEdge(parent, item);
@@ -317,7 +259,15 @@ public class Dictionary {
 			br.close();
 			
 			// Do a topological sort and store inverted list
-			List<String> sorted = TopologicalSort.sort(parentsGraph);
+			// also: detect cycles in the hierarchy
+			List<String> sorted = null;
+			try {
+				sorted = TopologicalSort.sort(parentsGraph);
+			} catch (IllegalArgumentException e) {
+				System.out.println("The given hierarchy contains a cycle. Exiting...");
+				// TODO: check whether this exit works in distributed mode
+				System.exit(1);
+			} 
 			for(int i=0; i<sorted.size(); i++) {
 				topologicalOrder.put(sorted.get(i), i);
 			}
@@ -358,9 +308,10 @@ public class Dictionary {
 
 
 	public void clear() {
-		// TODO: check where this function is used and whether it makes sense. (copied from SequentialMode.java)
 		tids.clear();
 		parents.clear();
+		parentsListPositions = null;
+		parentsList = null;
 	}
 	
 	public OpenIntObjectHashMap<String> getItemIdToName(){
@@ -374,6 +325,7 @@ public class Dictionary {
 	
 	
 	public int[] getItemToParent(){
+		//TODO-dm: remove this method
 		//return parentIds;
 		System.out.println("getItemToParent not implemented currently. Exiting...");
 		System.exit(1);
