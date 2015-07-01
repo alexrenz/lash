@@ -35,12 +35,14 @@ import org.apache.mahout.math.map.OpenObjectIntHashMap;
 
 public class Dictionary {
 	
+	// TODO: cleanup here
+	//protected int[] parentIds;
+	
 	//Combines itemId and support value in a long value
 	protected ArrayList<Long> items = new ArrayList<Long>();
 	
-	protected int[] parentIds;
-	protected int[] parentsListPositions;
-	protected int[] parentsList;
+	public int[] parentsListPositions;
+	public int[] parentsList;
 	
 	protected OpenIntObjectHashMap<String> itemIdToItemMap = new OpenIntObjectHashMap<String>();
 
@@ -72,10 +74,11 @@ public class Dictionary {
 		return itemIdToItemMap;
 	}
 	
+	/* TODO: remove
 	public int[] getParentIds() {
 		// TODO: revisit - good way to do this?
 		return parentIds;
-	}
+	} */
 	
 	public void load(Configuration conf, String fileName, int minSupport) throws IOException {
 		
@@ -113,12 +116,16 @@ public class Dictionary {
 		
 		Collections.sort(items, new MyComparator());
 		
+		System.out.println("ERROR: dictionary load does not work at the moment");
+		System.exit(1);
+		/* TODO: convert to new data structure
 		parentIds = new int[parentMap.size() + 1];
 		IntArrayList keyList = parentMap.keys();
 		for(int i = 0; i < keyList.size(); ++i) {
 			int item = keyList.get(i); 
 			parentIds[item] = parentMap.get(item);
 		}
+		*/ 
 	}
 
 	public void createDictionaryFromSequenceFiles(String sequenceFilesPath, String hierarchyPath) {
@@ -171,16 +178,11 @@ public class Dictionary {
 
 		
 		// create ItemId to ParentId list
-		parentIds = new int[terms.length + 1];
 		itemIdToItemMap = new OpenIntObjectHashMap<String>();
 		
 		// TODO: create new data structure to store multiple parents
 		for (String term : terms) {
-			int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term).get(0));
-			parentIds[tids.get(term)] = parentId;
-
 			itemIdToItemMap.put(tids.get(term), term);
-			
 		}
 
 		// Store parents in two-array data structure: position list and parent list
@@ -214,6 +216,20 @@ public class Dictionary {
 				System.out.print(itemIdToItemMap.get(parentsList[i]) + " ");
 			}
 			System.out.println("");
+		}
+		*/
+		
+		
+		// create ItemId to ParentId list
+		// LEGACY TODO: remove
+		/* parentIds = new int[terms.length + 1];
+		itemIdToItemMap = new OpenIntObjectHashMap<String>();
+
+		for (String term : terms) {
+			int parentId = (!parents.containsKey(term) || parents.get(term).get(0) == null) ? 0 : tids.get(parents.get(term).get(0));
+			parentIds[tids.get(term)] = parentId;
+
+			itemIdToItemMap.put(tids.get(term), term);
 		}
 		*/
 	}
@@ -358,8 +374,11 @@ public class Dictionary {
 	
 	
 	public int[] getItemToParent(){
-		return parentIds;
-	}
+		//return parentIds;
+		System.out.println("getItemToParent not implemented currently. Exiting...");
+		System.exit(1);
+		return new int[1];
+	}  
 	
 	public static void main(String[] args) throws IOException {
 	}

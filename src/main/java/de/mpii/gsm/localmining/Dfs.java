@@ -12,14 +12,14 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Map;
 
-
-import de.mpii.gsm.taxonomy.Taxonomy;
+import de.mpii.gsm.utils.Dictionary;
 import de.mpii.gsm.writer.GsmWriter;
 
 /**
  * @author Kaustubh Beedkar (kbeedkar@uni-mannheim.de)
  *
  */
+// TODO: comment this file
 public class Dfs {
 	
 	protected int sigma;
@@ -28,11 +28,16 @@ public class Dfs {
 
 	protected int lambda;
 
+	// List of seen transactions
 	protected ArrayList<int[]> inputTransactions = new ArrayList<int[]>();
 
+	// Support count for all the transactions in inputTransactions
 	protected IntArrayList transactionSupports = new IntArrayList();
 
-	protected Taxonomy taxonomy;
+	// TODO: cleanup
+	//protected Taxonomy taxonomy;
+	
+	protected Dictionary dictionary;
 
 	private int _noOfFrequentPatterns = 0;
 
@@ -48,11 +53,11 @@ public class Dfs {
 	public Dfs() {
 	}
 
-	public Dfs(int sigma, int gamma, int lambda, Taxonomy taxonomy) {
+	public Dfs(int sigma, int gamma, int lambda, Dictionary dictionary) {
 		this.sigma = sigma;
 		this.gamma = gamma;
 		this.lambda = lambda;
-		this.taxonomy = taxonomy;
+		this.dictionary = dictionary;
 	}
 
 	public void clear() {
@@ -61,11 +66,11 @@ public class Dfs {
 		globalItems.clear();
 	}
 
-	public void setParameters(int sigma, int gamma, int lambda, Taxonomy taxonomy) {
+	public void setParameters(int sigma, int gamma, int lambda, Dictionary dictionary) {
 		this.sigma = sigma;
 		this.gamma = gamma;
 		this.lambda = lambda;
-		this.taxonomy = taxonomy;
+		this.dictionary = dictionary;
 		clear();
 	}
 
@@ -79,6 +84,8 @@ public class Dfs {
 		this.endItem = e;
 	}
 
+	//TODO: is this method used anywhere?
+	// yep, there is one in SequentialMode.java
 	public void scanDatabase(String dbFile) throws Exception {
 
 		FileInputStream fstream;
@@ -120,13 +127,28 @@ public class Dfs {
 				continue;
 			}
 			int itemId = transaction[i];
-
-			itemId = transaction[i];
+			
 			globalItems.addItem(itemId, transactionId, support, i);
+			// TODO: make this work for multiple parents. 
+			// so far, only takes first parent
+			//System.out.print("[new] " + itemId + ":");
+			
+			while(dictionary.parentsListPositions[itemId+1] - dictionary.parentsListPositions[itemId] > 0) {
+				itemId = dictionary.parentsList[dictionary.parentsListPositions[itemId]];
+				globalItems.addItem(itemId, transactionId, support, i);
+				//System.out.print(" " + itemId);
+			}
+			//System.out.println("");
+			
+			//System.out.print("[old] " + itemId + ":");
+			/* TODO: remove old code: 
 			while (taxonomy.hasParent(itemId)) {
 				itemId = taxonomy.getParent(itemId);
 				globalItems.addItem(itemId, transactionId, support, i);
+				//System.out.print(" " + itemId);
 			}
+			//System.out.println("");
+			*/
 		}
 	}
 
@@ -172,11 +194,22 @@ public class Dfs {
 					gap++;
 					if (globalItems.itemIndex.get(itemId).support >= sigma)
 						localItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
+					
+					/* old code. TODO: remove
 					// add parents
 					while (taxonomy.hasParent(itemId)) {
 						itemId = taxonomy.getParent(itemId);
 						if (globalItems.itemIndex.get(itemId).support >= sigma)
 							localItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
+					}
+					*/
+					
+					// TODO: make this work with multiple parents. so far, only max. 1 parent is considered
+					while(dictionary.parentsListPositions[itemId+1] - dictionary.parentsListPositions[itemId] > 0) {
+						itemId = dictionary.parentsList[dictionary.parentsListPositions[itemId]];
+						if (globalItems.itemIndex.get(itemId).support >= sigma)
+							localItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
+						
 					}
 				}
 			}

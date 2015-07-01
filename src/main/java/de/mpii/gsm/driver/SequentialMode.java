@@ -132,28 +132,31 @@ public class SequentialMode {
 
 		this.writer = new SequentialGsmWwriter();
 
-		if (config.isResume()) {
+		if (config.isResume()) { /* TODO: implement resume option
 			String inputFile = config.getResumePath() + "/raw/part-r-00000";
 			String dictionaryFile = config.getResumePath() + "/wc/part-r-00000";
 
 			// Load dictionary
-			Dictionary dict = new Dictionary(config);
-			dict.load(null, dictionaryFile, config.getSigma());
+			dictionary = new Dictionary(config);
+			dictionary.load(null, dictionaryFile, config.getSigma());
 
 			// Initialize writer
-			writer.setItemIdToItemMap(dict.getItemIdToName());
+			writer.setItemIdToItemMap(dictionary.getItemIdToName());
 			writer.setOutputPath(config.getOutputPath());
 
 			// Initialize the taxonomy
-			int[] itemToParent = dict.getItemToParent();
-			Taxonomy taxonomy = new NytTaxonomy(itemToParent);
+			//todo: make it work with new code 
+			// int[] itemToParent = dictionary.getItemToParent();
+			// Taxonomy taxonomy = new NytTaxonomy(itemToParent);
+			System.out.println("ERROR: resume does not work at the moment");
+			System.exit(1);
 
 			// Mining
 			gsm = new Dfs();
-			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), taxonomy);
+			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), taxonomy, dictionary);
 			gsm.initialize();
 			gsm.scanDatabase(inputFile);
-			gsm.mine(writer);
+			gsm.mine(writer); */
 
 		} else {
 			// TODO: error checks for hierarchy path
@@ -169,12 +172,13 @@ public class SequentialMode {
 			writer.setItemIdToItemMap(this.dictionary.getItemIdToItemMap());
 			writer.setOutputPath(config.getOutputPath());
 
+			// TODO: remove
 			// Initialize taxonomy
-			Taxonomy taxonomy = new NytTaxonomy(this.dictionary.getParentIds());
+			// Taxonomy taxonomy = new NytTaxonomy(this.dictionary.getParentIDs());
 
 			// Mine sequences
 			gsm = new Dfs();
-			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), taxonomy);
+			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), dictionary);
 			gsm.initialize();
 			processRecursively(new File(config.getInputPath()));
 			
