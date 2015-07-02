@@ -159,25 +159,25 @@ public class SequentialMode {
 			gsm.mine(writer); */
 
 		} else {
-			// TODO: error checks for hierarchy path
-			
+			// Create dictionary
 			this.dictionary = new Dictionary(config);
 			this.dictionary.createDictionaryFromSequenceFiles(config.getHierarchyPath(), config.getInputPath());
-
 			if(config.isKeepFiles())
 				dictionary.writeJSONDictionary(config.getKeepFilesPath().concat("/" + "wc/part-r-00000"));
 
-			
 			// Initialize writer
 			writer.setItemIdToItemMap(this.dictionary.getItemIdToItemMap());
 			writer.setOutputPath(config.getOutputPath());
 
-			// Mine sequences
+			// Initialize the mining object
 			gsm = new Dfs();
 			gsm.setParameters(config.getSigma(), config.getGamma(), config.getLambda(), dictionary);
 			gsm.initialize();
+			
+			// Process input files and send transactions to the miner
 			processInputPathRecursively(new File(config.getInputPath()));
 
+			// Start mining
 			gsm.mine(writer);
 
 		}

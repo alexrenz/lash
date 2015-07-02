@@ -22,7 +22,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -70,6 +72,10 @@ public class Dictionary {
 		return itemIdToItemMap;
 	}
 	
+	/**
+	 * Loads a written dictionary from a dictionary file at location fileName, reading
+	 * only records above minSupport.
+	 */
 	public void load(Configuration conf, String fileName, int minSupport) throws IOException {
 		
 		BufferedReader br = null;
@@ -118,6 +124,10 @@ public class Dictionary {
 		*/ 
 	}
 
+	/**
+	 * Creates a dictionary from the input files in a given path sequenceFilesPath using the 
+	 * hierarchy file at a given path hierarchyPath
+	 */
 	public void createDictionaryFromSequenceFiles(String sequenceFilesPath, String hierarchyPath) {
 		// Process the hierarchy
 		File hFile = new File(sequenceFilesPath);
@@ -163,20 +173,54 @@ public class Dictionary {
 		for (int i=1; i<terms.length+1; i++) {
 			parentsListPositions[i] = currentPosition;
 			String term = terms[i-1];
-			if(parents.containsKey(term)) {
-				for(String parent : parents.get(term)) {
-					tempParentsList.add(tids.get(parent));
-					currentPosition++;
-				}
+			
+			// collect all parents of the current item in a set
+			Set<Integer> itemParents = new HashSet<Integer>();
+			addParentsToSet(term, itemParents);
+			
+			// add these parents to the parentsList
+			for(int parent: itemParents) {
+				tempParentsList.add(parent);
+				currentPosition++;
 			}
+			
 		}
 		parentsList = tempParentsList.toArray(new int[tempParentsList.size()]);
 		
 		// Add dummy item at the end of the positions list to make access easier for the last item
 		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
 		
+		
+		/* debug output. TODO: remove
+		for(String term: terms) {
+			System.out.print(term + "["+ tids.get(term) +"]: \t\t");
+			int tid = tids.get(term);
+			for(int i=parentsListPositions[tid]; 
+					i<parentsListPositions[tid+1]; 
+					i++) {
+				System.out.print(itemIdToItemMap.get(parentsList[i]) + " ");
+			}
+			System.out.println("");
+		} */
 	}
 	
+	/**
+	 * Recursively collects all parents of a given item in a set
+	 */
+	private Set<Integer> addParentsToSet(String term, Set<Integer> localParents) {
+		if (parents.containsKey(term)) {
+			for(String parent : parents.get(term)) {
+				localParents.add(tids.get(parent));
+				addParentsToSet(parent, localParents);
+			}
+		}
+		return localParents;
+	}
+	
+	/**
+	 * Recursively scans a given path to look for input files and triggers sequence 
+	 * reads for discovered input files. 
+	 */
 	private void processRecursively(File file) {
 		if (file.isFile()) {
 			scanSequences(file);
@@ -191,6 +235,9 @@ public class Dictionary {
 		}
 	}
 	
+	/**
+	 * Scans the sequences in a given input file and 
+	 */
 	private void scanSequences(File inputFile) {
 
 		try {
@@ -213,11 +260,9 @@ public class Dictionary {
 	
 					wordCounts.adjustOrPutValue(item, +1, +1);
 					
-					// TODO: increase count for multiple parents
-					// [temporarily, only first parent considered]
-					while (parents.get(item) != null) {
-						wordCounts.adjustOrPutValue(parents.get(item).get(0), +1, +1);
-						item = parents.get(item).get(0);
+					// (recursively) increase word counts for all parents
+					if(parents.containsKey(item)) {
+						adjustParents(item, wordCounts);
 					}
 				}
 	
@@ -232,6 +277,22 @@ public class Dictionary {
 		}
 	}
 	
+	/**
+	 * Climbs up parent hierarchy and increases word counts for all parents
+	 */
+	private void adjustParents(String item, OpenObjectIntHashMap<String> wordCounts) {
+		for(String parent : parents.get(item)) {
+			wordCounts.adjustOrPutValue(parent, +1, +1);
+			if(parents.containsKey(parent)) {
+				adjustParents(parent, wordCounts);
+			}
+		}
+		
+	}
+	
+	/**
+	 * Processes a given hierarchy file
+	 */
 	private void processHierarchy(File hFile) {
 		try {
 			FileInputStream fstream = new FileInputStream(hFile);
@@ -247,7 +308,7 @@ public class Dictionary {
 				if (splits.length == 2) {
 					String item = splits[0].trim();
 					String parent = splits[1].trim();
-					if(!parents.containsKey(splits))
+					if(!parents.containsKey(item))
 						parents.put(item, new ArrayList<String>());
 					parents.get(item).add(parent);
 					
@@ -276,8 +337,11 @@ public class Dictionary {
 		}
 	}
 	
+	/**
+	 * Serializes the current state of the dictionary as a JSON file to a give file path 
+	 */
 	public void writeJSONDictionary(String writePath) {
-		// TODO
+		// TODO: implement
 		// Write dictionary
 		/* old code from Sequentialmode.java
 		if (config.isKeepFiles()) {

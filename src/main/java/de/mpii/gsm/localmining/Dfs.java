@@ -19,13 +19,10 @@ import de.mpii.gsm.writer.GsmWriter;
  * @author Kaustubh Beedkar (kbeedkar@uni-mannheim.de)
  *
  */
-// TODO: comment this file
 public class Dfs {
 	
 	protected int sigma;
-
 	protected int gamma;
-
 	protected int lambda;
 
 	// List of seen transactions
@@ -33,16 +30,12 @@ public class Dfs {
 
 	// Support count for all the transactions in inputTransactions
 	protected IntArrayList transactionSupports = new IntArrayList();
-
-	// TODO: cleanup
-	//protected Taxonomy taxonomy;
 	
 	protected Dictionary dictionary;
 
 	private int _noOfFrequentPatterns = 0;
 
 	protected int beginItem = 0;
-
 	protected int endItem = Integer.MAX_VALUE;
 
 	protected Items globalItems = new Items();
@@ -112,6 +105,10 @@ public class Dfs {
 		br.close();
 	}
 
+	/**
+	 * Adds the specified subsequence of a given transaction to the collection of input transactions
+	 * and adds items to the inverted list structure in globalItems
+	 */
 	public void addTransaction(int[] transaction, int fromIndex, int toIndex, int support) {
 		int transactionId = transactionSupports.size();
 		transactionSupports.add(support);
@@ -128,30 +125,21 @@ public class Dfs {
 			}
 			int itemId = transaction[i];
 			
+			// Update globalItems for this item
 			globalItems.addItem(itemId, transactionId, support, i);
-			// TODO: make this work for multiple parents. 
-			// so far, only takes first parent
-			//System.out.print("[new] " + itemId + ":");
 			
-			while(dictionary.parentsListPositions[itemId+1] - dictionary.parentsListPositions[itemId] > 0) {
-				itemId = dictionary.parentsList[dictionary.parentsListPositions[itemId]];
-				globalItems.addItem(itemId, transactionId, support, i);
-				//System.out.print(" " + itemId);
+			// Also update globalItems for all the parents of this item
+			for(int pos=dictionary.parentsListPositions[itemId]; 
+					pos<dictionary.parentsListPositions[itemId+1]; 
+					pos++) {
+				globalItems.addItem(dictionary.parentsList[pos], transactionId, support, i);
 			}
-			//System.out.println("");
-			
-			//System.out.print("[old] " + itemId + ":");
-			/* TODO: remove old code: 
-			while (taxonomy.hasParent(itemId)) {
-				itemId = taxonomy.getParent(itemId);
-				globalItems.addItem(itemId, transactionId, support, i);
-				//System.out.print(" " + itemId);
-			}
-			//System.out.println("");
-			*/
 		}
 	}
 
+	/**
+	 * Triggers the mining of the collected transactions.
+	 */
 	public void mine(GsmWriter writer) throws IOException, InterruptedException {
 		this.writer = writer;
 		_noOfFrequentPatterns = 0;
@@ -168,6 +156,9 @@ public class Dfs {
 		clear();
 	}
 
+	/**
+	 * Recursively executes patterns search in the search space
+	 */
 	private void dfs(int[] prefix, ByteArrayList transactionIds, boolean hasPivot) throws IOException,
 			InterruptedException {
 		if (prefix.length == lambda)
@@ -195,20 +186,14 @@ public class Dfs {
 					if (globalItems.itemIndex.get(itemId).support >= sigma)
 						localItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
 					
-					/* old code. TODO: remove
-					// add parents
-					while (taxonomy.hasParent(itemId)) {
-						itemId = taxonomy.getParent(itemId);
-						if (globalItems.itemIndex.get(itemId).support >= sigma)
-							localItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
-					}
-					*/
-					
-					// TODO: make this work with multiple parents. so far, only max. 1 parent is considered
-					while(dictionary.parentsListPositions[itemId+1] - dictionary.parentsListPositions[itemId] > 0) {
-						itemId = dictionary.parentsList[dictionary.parentsListPositions[itemId]];
-						if (globalItems.itemIndex.get(itemId).support >= sigma)
-							localItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
+					// Also consider parents of current item
+					int parentId = 0;
+					for(int pos=dictionary.parentsListPositions[itemId]; 
+							pos<dictionary.parentsListPositions[itemId+1]; 
+							pos++) {
+						parentId = dictionary.parentsList[pos];
+						if (globalItems.itemIndex.get(parentId).support >= sigma)
+							localItems.addItem(parentId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
 						
 					}
 				}
@@ -216,8 +201,8 @@ public class Dfs {
 
 		} while (transactions.nextPosting());
 
+		// Descend further
 		int[] newPrefix = new int[prefix.length + 1];
-
 		for (Map.Entry<Integer, Item> entry : localItems.itemIndex.entrySet()) {
 			Item item = entry.getValue();
 			if (item.support >= sigma) {
