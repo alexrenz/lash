@@ -140,16 +140,23 @@ public class Dictionary {
 		List<String> temp = cfs.keys();
 		String[] terms = Arrays.copyOf(temp.toArray(), temp.toArray().length, String[].class);
 
-		// sort terms in descending order of their collection frequency and topological order
+		// sort terms twice:
+		
+		// first: by ascending topological order
 		Arrays.sort(terms, new Comparator<String>() {
 			@Override
 			public int compare(String t, String u) {
-				if(cfs.get(u) - cfs.get(t) != 0)
-					// 'larger' cfs first
-					return cfs.get(u) - cfs.get(t);
-				else
-					// 'smaller' order first
-					return  topologicalOrder.get(t) - topologicalOrder.get(u);
+				// 'smaller' order first
+				return  topologicalOrder.get(t) - topologicalOrder.get(u);
+			}
+		});
+		
+		// second: by descending cfs
+		Arrays.sort(terms, new Comparator<String>() {
+			@Override
+			public int compare(String t, String u) {
+				// 'larger' cfs first
+				return cfs.get(u) - cfs.get(t);
 			}
 		});
 
@@ -164,6 +171,7 @@ public class Dictionary {
 		for (String term : terms) {
 			itemIdToItemMap.put(tids.get(term), term);
 		}
+		
 
 		// Store parents in two-array data structure: position list and parent list
 		IntArrayList tempParentsList = new IntArrayList();
@@ -189,6 +197,21 @@ public class Dictionary {
 		
 		// Add dummy item at the end of the positions list to make access easier for the last item
 		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
+		
+		
+		// Test the order: for each item, all parents need to have a lower id
+		for(int i=1; i<terms.length+1; i++) {
+			// check all parents
+			for(int pos=parentsListPositions[i]; 
+					pos<parentsListPositions[i+1]; 
+					pos++) {
+				if(parentsList[pos] > i) {
+					System.out.println("ERROR: Item " + i + " has parent " + parentsList[pos] + ", which as a higher ID.");
+					System.exit(1);
+				}
+				
+			}
+		}
 		
 		
 		/* debug output. TODO: remove
