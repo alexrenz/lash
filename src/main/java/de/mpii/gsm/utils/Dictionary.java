@@ -182,9 +182,22 @@ public class Dictionary {
 			parentsListPositions[i] = currentPosition;
 			String term = terms[i-1];
 			
-			// collect all parents of the current item in a set
+			// collect ancestors of the current item in a set
 			Set<Integer> itemParents = new HashSet<Integer>();
-			addParentsToSet(term, itemParents);
+			if(parents.containsKey(term)) {
+				for(String parent : parents.get(term)) {
+					int parentId = tids.get(parent);
+					
+					// add the this parent
+					itemParents.add(parentId);
+					
+					// add the ancestors of this parent (which we have determined in previous loop iterations)
+					for(int pos=parentsListPositions[parentId]; pos<parentsListPositions[parentId + 1]; pos++) {
+									// Note: A parent of element i is max. (i-1), therefore this is max. i, which is already set
+						itemParents.add(tempParentsList.get(pos));
+					}
+				}
+			}
 			
 			// add these parents to the parentsList
 			for(int parent: itemParents) {
@@ -214,7 +227,7 @@ public class Dictionary {
 		}
 		
 		
-		/* debug output. TODO: remove
+		/* debug output. TODO: remove 
 		for(String term: terms) {
 			System.out.print(term + "["+ tids.get(term) +"]: \t\t");
 			int tid = tids.get(term);
@@ -224,20 +237,7 @@ public class Dictionary {
 				System.out.print(itemIdToItemMap.get(parentsList[i]) + " ");
 			}
 			System.out.println("");
-		} */
-	}
-	
-	/**
-	 * Recursively collects all parents of a given item in a set
-	 */
-	private Set<Integer> addParentsToSet(String term, Set<Integer> localParents) {
-		if (parents.containsKey(term)) {
-			for(String parent : parents.get(term)) {
-				localParents.add(tids.get(parent));
-				addParentsToSet(parent, localParents);
-			}
-		}
-		return localParents;
+		}*/
 	}
 	
 	/**
