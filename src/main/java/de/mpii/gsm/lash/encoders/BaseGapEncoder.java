@@ -51,8 +51,11 @@ public abstract class BaseGapEncoder {
 	/**
 	 * Taxonomy
 	 */
-	Taxonomy taxonomy;
-
+	//Taxonomy taxonomy;
+	// multipleParents
+	public int[] parentsListPositions;
+	public int[] parentsList;
+	
 	// -- construction
 	// ------------------------------------------------------------------------------
 	/**
@@ -87,8 +90,13 @@ public abstract class BaseGapEncoder {
 	}
 	
 	
-	public void setTaxonomy(Taxonomy taxonomy){
-		this.taxonomy = taxonomy;
+	//public void setTaxonomy(Taxonomy taxonomy){
+	//	this.taxonomy = taxonomy;
+	//}
+	//multipleParents
+	public void setParentsList(int[] parentsListPositions, int[] parentsList) {
+		this.parentsListPositions = parentsListPositions;
+		this.parentsList = parentsList;
 	}
 
 	// -- encoding
@@ -164,22 +172,47 @@ public abstract class BaseGapEncoder {
 				boolean isRelevant = false;
 				
 				if(item > 0) {
-					if (item <= endItem) {
-						isRelevant = true;
-					}
-					else{
-						while(taxonomy.hasParent(item)){
-							item = taxonomy.getParent(item);
-							if(item <= endItem) {
-								isRelevant = true;
+					while(true) {
+						// item <= pivot => keep
+						if (item <= endItem) {
+							isRelevant = true;
+							break;
+						}
+						else {
+							int numParents = parentsListPositions[item+1] - parentsListPositions[item];
+							// item > pivot and no parents => blank
+							if(numParents == 0) {
+								break;
+							}
+							// item > pivot and single parent => generalize to that parent and repeat
+							else if (numParents == 1) {
+								item = parentsList[parentsListPositions[item]];
+								continue;
+							}
+							// item > pivot and >1 parents => keep item
+							else {
+								// Does the item have a relevant ancestor?
+								for(int pPos=parentsListPositions[item]; pPos<parentsListPositions[item+1]; pPos++) {
+									if(parentsList[pPos] <= endItem) {
+										isRelevant = true;
+										break;
+									}
+								}
 								break;
 							}
 						}
 					}
 				}
 				
-				
-				boolean isPivot = isRelevant && item >= beginItem;
+				boolean generalizesToPivot = false;
+				// Does the item generalize to a pivot item?
+				for(int pPos=parentsListPositions[item]; pPos<parentsListPositions[item+1]; pPos++) {
+					if(parentsList[pPos] >= beginItem) {
+						generalizesToPivot = true;
+						break;
+					}
+				}
+				boolean isPivot = isRelevant && (item >= beginItem || generalizesToPivot);
 
 				updateHops(pos, pdist, isPivot, isRelevant, reset, rightHops);
 				reset = false;
@@ -220,7 +253,38 @@ public abstract class BaseGapEncoder {
 			//boolean isRelevant = item <= endItem && item > 0;
 			boolean isRelevant = false;
 			
-			if(item > 0) {
+			if(item > 0) { 
+				while(true) {
+					// item <= pivot => keep
+					if (item <= endItem) {
+						isRelevant = true;
+						break;
+					}
+					else {
+						int numParents = parentsListPositions[item+1] - parentsListPositions[item];
+						// item > pivot and no parents => blank
+						if(numParents == 0) {
+							break;
+						}
+						// item > pivot and single parent => generalize to that parent and repeat
+						else if (numParents == 1) {
+							item = parentsList[parentsListPositions[item]];
+							continue;
+						}
+						// item > pivot and >1 parents => keep item
+						else {
+							// Does the item have a relevant ancestor?
+							for(int pPos=parentsListPositions[item]; pPos<parentsListPositions[item+1]; pPos++) {
+								if(parentsList[pPos] <= endItem) {
+									isRelevant = true;
+									break;
+								}
+							}
+							break;
+						}
+					}
+				}
+				/*
 				if (item <= endItem) {
 					isRelevant = true;
 				}
@@ -232,9 +296,20 @@ public abstract class BaseGapEncoder {
 							break;
 						}
 					}
+				}*/
+			}
+			
+			boolean generalizesToPivot = false;
+			// Does the item generalize to a pivot item?
+			for(int pPos=parentsListPositions[item]; pPos<parentsListPositions[item+1]; pPos++) {
+				if(parentsList[pPos] >= beginItem) {
+					generalizesToPivot = true;
+					break;
 				}
 			}
-			boolean isPivot = isRelevant && item >= beginItem;
+			
+			boolean isPivot = isRelevant && (item >= beginItem || generalizesToPivot);
+			
 
 			boolean isReachable = true;
 			if (removeUnreachable) {

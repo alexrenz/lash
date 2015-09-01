@@ -29,7 +29,9 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 	/** an index mapping partitions to its pivot range */
 	Map<Integer, Long> partitionToItems;
 
-	int[] itemToParent;
+	//int[] itemToParent;
+	public int[] parentsListPositions;
+	public int[] parentsList;
 
 	/**
 	 * a set containing the partitions for which the current transaction has
@@ -59,7 +61,7 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 	SplitGapEncoder splitEncoder;
 
 	// Taxonomy
-	Taxonomy taxonomy;
+	//multipleParents Taxonomy taxonomy;
 
 	/**
 	 * if positive, only the respective partition is created -- for debugging
@@ -99,8 +101,17 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 			partitionToItems = (HashMap<Integer, Long>) is.readObject();
 			is.close();
 
-			is = new ObjectInputStream(new FileInputStream("itemToParent"));
-			itemToParent = (int[]) is.readObject();
+			//is = new ObjectInputStream(new FileInputStream("itemToParent"));
+			//itemToParent = (int[]) is.readObject();
+			//is.close();
+			
+			// multipleParent
+			is = new ObjectInputStream(new FileInputStream("parentsListPositions"));
+			parentsListPositions = (int[]) is.readObject();
+			is.close();
+			
+			is = new ObjectInputStream(new FileInputStream("parentsList"));
+			parentsList = (int[]) is.readObject();
 			is.close();
 
 		} catch (IOException e) {
@@ -111,7 +122,7 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 
 		// initialize encoders and other parameters
 
-		taxonomy = new NytTaxonomy(itemToParent);
+		//multipleParents taxonomy = new NytTaxonomy(itemToParent);
 
 		// System.out.println("parent size=" + itemToParent.length);
 		int totalPartitions = context.getConfiguration().getInt("de.mpii.gsm.partitioning.totalPartitions", 0);
@@ -122,9 +133,12 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 
 		simpleEncoder = new SimpleGapEncoder(gamma, lambda, new BytesWritable(), COMPRESS_GAPS, REMOVE_UNREACHABLE);
 		splitEncoder = new SplitGapEncoder(gamma, lambda, new ArrayList<BytesWritable>(), COMPRESS_GAPS, REMOVE_UNREACHABLE);
-		simpleEncoder.setTaxonomy(taxonomy);
-		splitEncoder.setTaxonomy(taxonomy);
-
+		//simpleEncoder.setTaxonomy(taxonomy);
+		//splitEncoder.setTaxonomy(taxonomy);
+		//multipleParents 
+		simpleEncoder.setParentsList(parentsListPositions, parentsList);
+		splitEncoder.setParentsList(parentsListPositions, parentsList);
+		
 		partitionToPivotRange = new long[totalPartitions + 1];
 
 	}
@@ -145,21 +159,37 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 		int beginItem;
 		int endItem;
 		long pivotRange;
+		
+		
 
 		// iterate through transaction perform encoding at the same time
 		for (int offset = 0; offset < transaction.length; offset++) {
 
 			int item = transaction[offset];
-
+			int startItem = item;
+			
+			// multipleParents
+			int pos = 0;
+			
+			
 			do {
 
 				// System.out.println("processing item = " + item);
 
 				// retrieve the partition of the item, infrequent and stop words
 				// have no partition (null)
+				
 				if (itemToPartition.get(item) == null) {
-					if (taxonomy.hasParent(item)) {
-						item = taxonomy.getParent(item);
+					//if (taxonomy.hasParent(item)) {
+					//	item = taxonomy.getParent(item);
+					
+					// Is there one more ancestor?
+					if (parentsListPositions[startItem] + pos < parentsListPositions[startItem+1]) {
+						
+						// Get the next ancestor
+						item = parentsList[parentsListPositions[startItem] + pos];
+						pos++;
+						
 						continue;
 					} else
 						break;
@@ -182,8 +212,9 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 				if (!isFirstOccurrence) {
 					// continue;
 
-					if (taxonomy.hasParent(item)) {
-						item = taxonomy.getParent(item);
+					if (parentsListPositions[startItem] + pos < parentsListPositions[startItem+1]) {
+						item = parentsList[parentsListPositions[startItem] + pos];
+						pos++;
 						continue;
 					} else
 						break;
@@ -205,8 +236,9 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 				}
 				emit(partitionId, context);
 
-				if (taxonomy.hasParent(item)) {
-					item = taxonomy.getParent(item);
+				if (parentsListPositions[startItem] + pos < parentsListPositions[startItem+1]) {
+					item = parentsList[parentsListPositions[startItem] + pos];
+					pos++;
 					// System.out.println("item Parent = " + item);
 				} else {
 					break;

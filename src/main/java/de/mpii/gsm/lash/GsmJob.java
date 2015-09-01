@@ -146,7 +146,7 @@ public class GsmJob {
 		job.getConfiguration().setInt("de.mpii.gsm.partitioning.debugPartId", debugPartId);
 
 		// Taxonomy
-		int[] itemToParent = dictionary.getItemToParent();
+		//int[] itemToParent = dictionary.getItemToParent();
 
 		// Serialize and add to distributed cache
 		try {
@@ -166,11 +166,29 @@ public class GsmJob {
 			DistributedCache.addCacheFile(new URI(item2PartInfoObject + "#itemToPartition"), conf);
 
 			// taxonomy
-			String item2ParentInfoObject = "itemToParent";
+			/* String item2ParentInfoObject = "itemToParent";
 			os = new ObjectOutputStream(fs.create(new Path(item2ParentInfoObject)));
 			os.writeObject(itemToParent);
 			os.close();
-			DistributedCache.addCacheFile(new URI(item2ParentInfoObject + "#itemToParent"), conf);
+			DistributedCache.addCacheFile(new URI(item2ParentInfoObject + "#itemToParent"), conf); */
+			
+			// multipleParents: rather than one itemToParent list, we have one parentsListPositions and one parentsList
+			// parentsListPositions
+			String parentsListPositionsInfoObject = "parentsListPositions";
+			os = new ObjectOutputStream(fs.create(new Path(parentsListPositionsInfoObject)));
+			os.writeObject(dictionary.parentsListPositions);
+			os.close();
+			DistributedCache.addCacheFile(new URI(parentsListPositionsInfoObject + "#parentsListPositions"), conf);
+			
+			// parentsList
+			String parentsListInfoObject = "parentsList";
+			os = new ObjectOutputStream(fs.create(new Path(parentsListInfoObject)));
+			os.writeObject(dictionary.parentsList);
+			os.close();
+			DistributedCache.addCacheFile(new URI(parentsListInfoObject + "#parentsList"), conf);
+			
+			
+			
 
 		} catch (Exception e) {
 			LOGGER.severe("Exception during serialization: " + e);
