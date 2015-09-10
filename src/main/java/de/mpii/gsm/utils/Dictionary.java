@@ -147,7 +147,17 @@ public class Dictionary {
 			@Override
 			public int compare(String t, String u) {
 				// 'smaller' order first
-				return  topologicalOrder.get(t) - topologicalOrder.get(u);
+				
+				// if t is not in the hierarchy, sort it to the end
+				if(!topologicalOrder.containsKey(t)) {
+					return 1;
+				}
+				// if u is not in the hierarchy, sort it to the end
+				else if(!topologicalOrder.containsKey(u)) {
+					return -1;
+				}
+				else
+					return  topologicalOrder.get(t) - topologicalOrder.get(u);
 			}
 		});
 		
@@ -356,6 +366,7 @@ public class Dictionary {
 				topologicalOrder.put(sorted.get(i), i);
 			}
 		} catch (IOException e) {
+			System.err.println("Hierarchy file not found: " + hFile);
 			e.printStackTrace();
 		}
 	}
