@@ -70,6 +70,9 @@ public class DistributedMode {
 			String[] conversionArgs = { config.getInputPath(), config.getEncodedInputPath(), config.getHierarchyPath(),
 					Integer.toString(config.getNumReducers()), config.getItemSeparator() };
 			ToolRunner.run(new ConvertInputSequences(), conversionArgs);
+			
+			System.out.println("Exiting from DistributedMode.java");
+			System.exit(0);
 
 			// GsmJob
 			GsmJob.runGsmJob(config);

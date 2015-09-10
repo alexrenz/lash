@@ -1,6 +1,7 @@
 package de.mpii.gsm.tools;
 
 import de.mpii.gsm.utils.DfsUtils;
+import de.mpii.gsm.utils.Dictionary;
 import de.mpii.gsm.utils.IntArrayWritable;
 import de.mpii.gsm.utils.FPWritable;
 
@@ -14,10 +15,14 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -62,7 +67,7 @@ public class ConvertInputSequences extends Configured implements Tool {
 		// singleton output value -- for efficiency reasons
 		private final FPWritable outValue = new FPWritable();
 
-		HashMap<String, String> parent;
+		HashMap<String, String[]> ancestors;
 
 		String itemSeparator = "\t";
 
@@ -73,8 +78,8 @@ public class ConvertInputSequences extends Configured implements Tool {
 			itemSeparator = context.getConfiguration().get("de.mpii.tools.itemSeparator", "\t");
 
 			try {
-				ObjectInputStream is = new ObjectInputStream(new FileInputStream("parent"));
-				parent = (HashMap<String, String>) is.readObject();
+				ObjectInputStream is = new ObjectInputStream(new FileInputStream("ancestors"));
+				ancestors = (HashMap<String, String[]>) is.readObject();
 				is.close();
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -91,19 +96,18 @@ public class ConvertInputSequences extends Configured implements Tool {
 			String[] terms = value.toString().split(itemSeparator);
 			for (int i = 1; i < terms.length; ++i) {
 				String term = terms[i];
-
 				wordCounts.adjustOrPutValue(term, +1, +1);
 
-				while (parent.get(term) != null) {
-					wordCounts.adjustOrPutValue(parent.get(term), +1, +1);
-					term = parent.get(term);
+				for(String ancestor : ancestors.get(term)) {
+					wordCounts.adjustOrPutValue(ancestor, +1, +1);
 				}
 			}
+			
 
 			for (String term : wordCounts.keys()) {
 				outKey.set(term);
 				outValue.setFrequency(wordCounts.get(term));
-				outValue.setParent(parent.get(term));
+				outValue.setAncestors(ancestors.containsKey(term) ? ancestors.get(term) : new String[0] );
 				context.write(outKey, outValue);
 			}
 		}
@@ -124,32 +128,34 @@ public class ConvertInputSequences extends Configured implements Tool {
 		private final OpenObjectIntHashMap<String> dfs = new OpenObjectIntHashMap<String>();
 
 		// parents
-		private final HashMap<String, String> parents = new HashMap<String, String>();
+		private final HashMap<String, String[]> ancestors = new HashMap<String, String[]>();
+		private HashMap<String, Integer> topologicalOrder = null;
 
 		@Override
 		protected void reduce(Text key, Iterable<FPWritable> values, Context context) throws IOException,
 				InterruptedException {
-			String parent = null;
+			String[] ancestorsOfThisItem = null;
 
 			int cf = 0;
 			int df = 0;
 			for (FPWritable value : values) {
 				cf += value.getFrequency();
 				df++;
-				parent = value.getParent();
+				ancestorsOfThisItem = value.getAncestors();
 			}
 
 			cfs.put(key.toString(), cf);
 			dfs.put(key.toString(), df);
-			parents.put(key.toString(), parent);
+			ancestors.put(key.toString(), ancestorsOfThisItem);
 		}
 
+		
 		@Override
 		protected void cleanup(Context context) throws IOException, InterruptedException {
-
 			List<String> temp = cfs.keys();
 			String[] terms = Arrays.copyOf(temp.toArray(), temp.toArray().length, String[].class);
 
+			/* old workaround
 			// Remove parents with same frequency as children
 			for (int i = 0; i < terms.length; ++i) {
 				String term = terms[i];
@@ -162,7 +168,40 @@ public class ConvertInputSequences extends Configured implements Tool {
 					if (parent == null)
 						break;
 				}
+			} */
+			
+			ObjectInputStream is = new ObjectInputStream(new FileInputStream("topologicalOrder"));
+			try {
+				topologicalOrder = (HashMap<String, Integer>) is.readObject();
+			} catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				LOGGER.severe("Topological order could not be read from distributed cache");
+				e.printStackTrace();
+				System.exit(0);
 			}
+			is.close();
+			
+			
+			// new for multipleParents: sort by topological order and then by cfs
+			Arrays.sort(terms, new Comparator<String>() {
+				@Override
+				public int compare(String t, String u) {
+					// 'smaller' order first
+					
+					// if t is not in the hierarchy, sort it to the end
+					if(!topologicalOrder.containsKey(t)) {
+						return 1;
+					}
+					// if u is not in the hierarchy, sort it to the end
+					else if(!topologicalOrder.containsKey(u)) {
+						return -1;
+					}
+					else
+						return  topologicalOrder.get(t) - topologicalOrder.get(u);
+				}
+			});
+			
+			
 
 			// sort terms in descending order of their collection frequency
 			Arrays.sort(terms, new Comparator<String>() {
@@ -177,16 +216,44 @@ public class ConvertInputSequences extends Configured implements Tool {
 			for (int i = 0; i < terms.length; i++) {
 				tids.put(terms[i], (i + 1));
 			}
+			
+			//outKey.set("");
+			//outValue.set("{ \"dictionary\": [");
+			//context.write(outKey, outValue);
+			
 
 			for (String term : terms) {
 				outKey.set(term);
 
-				int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
-
-				outValue.set(cfs.get(term) + "\t" + dfs.get(term) + "\t" + tids.get(term) + "\t" + parentId);
+				String ancestorIds = "";
+				if(ancestors.containsKey(term) && ancestors.get(term).length > 0) {
+					for(int i = 0; i<ancestors.get(term).length; i++) {
+						ancestorIds += tids.get(ancestors.get(term)[i]) + (i==ancestors.get(term).length-1 ? "" : ", ");
+					}
+				}
+				else {
+					ancestorIds = "";
+				}
+				
+				
+				outValue.set(cfs.get(term) + "\t" + dfs.get(term) + "\t" + tids.get(term) + "\t" + ancestorIds);
+				
+				/*outValue.set("{ \"id\": " + tids.get(term) + 
+							 ", \"term\": " + term + 
+							 ", \"cfs\": " + cfs.get(term) + 
+							 ", \"dfs\": "+ dfs.get(term) +
+							 ", \"ancestors\": [" + ancestorIds + "] }"
+					//+ (term.equals(terms[terms.length - 1]) ? "" : ",")
+				);*/
 
 				context.write(outKey, outValue);
+				LOGGER.info(outKey.toString() + ": " + outValue.toString());
 			}
+			
+
+			//outKey.set("");
+			//outValue.set("]}");
+			//context.write(outKey, outValue);
 		}
 
 	}
@@ -293,9 +360,23 @@ public class ConvertInputSequences extends Configured implements Tool {
 		String taxURI = conf.get("taxPath");
 
 		FileSystem fs = FileSystem.get(conf);
-		FSDataInputStream dis = fs.open(new Path(taxURI));
-		BufferedReader br = new BufferedReader(new InputStreamReader(dis));
-
+		FSDataInputStream hStream = fs.open(new Path(taxURI));
+		//BufferedReader br = new BufferedReader(new InputStreamReader(dis));
+		
+		// Create ancestor map from the hierarchy file
+		Dictionary dictionary = new Dictionary();
+		HashMap<String, String[]> ancestors = dictionary.readHierarchyFromFileAndGetAncestors(hStream);
+		
+		
+		/*for(Entry<String, String[]> item : ancestors.entrySet()) {
+			String outp = item.getKey() + ": ";
+			for(String ancestor : item.getValue()) {
+				outp += ancestor + ", ";
+			}
+			LOGGER.warning(outp);
+		}*/
+		
+		/*
 		HashMap<String, String> parent = new HashMap<String, String>();
 		String line = null;
 		while ((line = br.readLine()) != null) {
@@ -303,19 +384,27 @@ public class ConvertInputSequences extends Configured implements Tool {
 			if (splits.length == 2)
 				parent.put(splits[0], splits[1]);
 		}
-		br.close();
+		br.close();*/
 
-		// Serialize and add to distributed cache
+		// Serialize and add the hierarchy file to distributed cache
 		try {
-			String tax = "parent";
+			String tax = "ancestors";
 			fs = FileSystem.get(URI.create(tax), conf);
 			ObjectOutputStream os = new ObjectOutputStream(fs.create(new Path(tax)));
 
-			os.writeObject(parent);
+			os.writeObject(ancestors);
 			os.close();
-			DistributedCache.addCacheFile(new URI(tax + "#parent"), conf);
+			DistributedCache.addCacheFile(new URI(tax + "#ancestors"), conf);
+			
+			tax = "topologicalOrder";
+			fs = FileSystem.get(URI.create(tax), conf);
+			os = new ObjectOutputStream(fs.create(new Path(tax)));
 
-			parent.clear();
+			os.writeObject(dictionary.getTopologicalOrder());
+			os.close();
+			DistributedCache.addCacheFile(new URI(tax + "#topologicalOrder"), conf);
+
+			ancestors.clear();
 
 		} catch (Exception e) {
 			e.printStackTrace();

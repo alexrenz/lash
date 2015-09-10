@@ -17,27 +17,27 @@ import org.apache.hadoop.io.WritableUtils;
 public class FPWritable implements WritableComparable<FPWritable>{
 	
 	private int frequency = 0;
-	private String parent = null;
+	private String[] ancestors = null;
 	
 	public FPWritable(){
 		
 	}
 	
-	public FPWritable(int frequency, String parent) {
+	public FPWritable(int frequency, String[] ancestors) {
 		this.frequency = frequency;
-		this.parent = parent;
+		this.ancestors = ancestors;
 	}
 
 	@Override
 	public void readFields(DataInput di) throws IOException {
 		frequency = WritableUtils.readVInt(di);
-		parent = WritableUtils.readString(di);
+		ancestors = WritableUtils.readStringArray(di);
 	}
 
 	@Override
 	public void write(DataOutput d) throws IOException {
 		WritableUtils.writeVInt(d, frequency);
-		WritableUtils.writeString(d, parent);
+		WritableUtils.writeStringArray(d, ancestors);
 	}
 
 	@Override
@@ -50,16 +50,16 @@ public class FPWritable implements WritableComparable<FPWritable>{
 		return frequency;
 	}
 	
-	public String getParent(){
-		return parent;
+	public String[] getAncestors(){
+		return ancestors;
 	}
 	
 	public void setFrequency(int frequency){
 		this.frequency = frequency;
 	}
 	
-	public void setParent(String parent) {
-		this.parent = parent;
+	public void setAncestors(String[] ancestors) {
+		this.ancestors = ancestors;
 	}
 	
 	
@@ -68,17 +68,17 @@ public class FPWritable implements WritableComparable<FPWritable>{
 		
 		FPWritable w = new FPWritable();
 		w.setFrequency(10);
-		w.setParent("abcd");
+		w.setAncestors(new String[] {"abcd", "bcde"});
 		
-		System.out.println(w.getFrequency() + " " + w.getParent());
+		System.out.println(w.getFrequency() + " " + w.getAncestors());
 		
 		
 		w.setFrequency(12341234);
-		w.setParent(null);
+		w.setAncestors(null);
 		
-		System.out.println(w.getFrequency() + " " + w.getParent());
+		System.out.println(w.getFrequency() + " " + w.getAncestors());
 		
-		if(w.getParent() == null){
+		if(w.getAncestors() == null){
 			System.out.println("null value");
 		}
 		

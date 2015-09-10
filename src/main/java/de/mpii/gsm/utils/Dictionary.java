@@ -12,6 +12,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,6 +25,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
@@ -128,13 +130,24 @@ public class Dictionary {
 	 * Creates a dictionary from the input files in a given path sequenceFilesPath using the 
 	 * hierarchy file at a given path hierarchyPath
 	 */
-	public void createDictionaryFromSequenceFiles(String sequenceFilesPath, String hierarchyPath) {
+	public void createDictionaryFromSequenceFiles(String hierarchyPath, String sequencesPath) {
 		// Process the hierarchy
-		File hFile = new File(sequenceFilesPath);
-		processHierarchy(hFile);
+		File hFile = new File(hierarchyPath);
+		FileInputStream fstream;
+		try {
+			fstream = new FileInputStream(hFile);
+			DataInputStream hStream = new DataInputStream(fstream);
+			processHierarchy(hStream);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			System.err.println("Hierarchy file not found.");
+			System.exit(0);
+		}
+		
 
 		// Read the input files to create the f-list
-		File iFile = new File(hierarchyPath);
+		File iFile = new File(sequencesPath);
 		processRecursively(iFile);
 		
 		List<String> temp = cfs.keys();
@@ -251,6 +264,42 @@ public class Dictionary {
 	}
 	
 	/**
+	 * Creates a dictionary from the input files in a given path sequenceFilesPath using the 
+	 * hierarchy file at a given path hierarchyPath
+	 * @return 
+	 */
+	public HashMap<String, String[]> readHierarchyFromFileAndGetAncestors(FSDataInputStream hStream) {
+		// Process the hierarchy
+		
+		processHierarchy(hStream);
+		
+		HashMap<String, String[]> ancestors = new HashMap<String, String[]>();
+		
+		// TODO: optimize - do a topological sort first and leverage hierarchy to do this more efficiently
+		for(Entry<String, ArrayList<String>> entry: parents.entrySet()) {
+			
+			HashSet<String> ancestorSet = new HashSet<String>();
+			addAncestorsOfItemToSet(entry.getKey(), ancestorSet);
+			
+
+			ancestors.put(entry.getKey(), ancestorSet.toArray(new String[ancestorSet.size()]));
+			
+		}
+		
+		return ancestors;
+	}
+	
+	private void addAncestorsOfItemToSet(String currentItem, Set<String> ancestorsOfStartingItem) {
+		ancestorsOfStartingItem.addAll(parents.get(currentItem));
+		
+		for(String nextParent : parents.get(currentItem)) {
+			if(parents.containsKey(nextParent)) {
+				addAncestorsOfItemToSet(nextParent, ancestorsOfStartingItem);
+			}
+		}
+	}
+	
+	/**
 	 * Recursively scans a given path to look for input files and triggers sequence 
 	 * reads for discovered input files. 
 	 */
@@ -326,11 +375,10 @@ public class Dictionary {
 	/**
 	 * Processes a given hierarchy file
 	 */
-	private void processHierarchy(File hFile) {
+	private void processHierarchy(DataInputStream hStream) {
 		try {
-			FileInputStream fstream = new FileInputStream(hFile);
-			DataInputStream in = new DataInputStream(fstream);
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			
+			BufferedReader br = new BufferedReader(new InputStreamReader(hStream));
 
 			String line;
 			
@@ -366,7 +414,6 @@ public class Dictionary {
 				topologicalOrder.put(sorted.get(i), i);
 			}
 		} catch (IOException e) {
-			System.err.println("Hierarchy file not found: " + hFile);
 			e.printStackTrace();
 		}
 	}
@@ -414,6 +461,10 @@ public class Dictionary {
 	
 	public OpenIntObjectHashMap<String> getItemIdToName(){
 		return itemIdToItemMap;
+	}
+	
+	public HashMap<String, Integer> getTopologicalOrder(){
+		return topologicalOrder;
 	}
 	
 	//Items are sorted in decreasing order of frequencies
