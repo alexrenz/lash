@@ -176,8 +176,8 @@ public class SimpleGapEncoder extends BaseGapEncoder {
 	public static void main(String args[]) throws IOException {
 
 		// no common pivot
-		testWriteSequence(new int[] { 1, 3, 6, 100, 1, 3, 4, 7 }, 6, 8, 0);
-		testWriteSequence(new int[] { 1, 3, 6, 100, 100, 1, 3, 4, 7 }, 6, 8, 1);
+		testWriteSequence(new int[] { 1, 3, 6, 12, 1, 3, 4, 7 }, 6, 8, 0);
+		/*testWriteSequence(new int[] { 1, 3, 6, 100, 100, 1, 3, 4, 7 }, 6, 8, 1);
 
 		// only pivot common
 		testWriteSequence(new int[] { 1, 3, 6, 100, 2, 4, 6 }, 6, 8, 0);
@@ -201,7 +201,7 @@ public class SimpleGapEncoder extends BaseGapEncoder {
 		testWriteSequence(new int[] { 1, 3, 6, 100, 2, 4, 6, 100, 2, 4, 7 }, 6,
 				8, 0);
 		testWriteSequence(new int[] { 100, 100, 1, 3, 6, 100, 2, 3, 6, 100, 4,
-				3, 6, 100, 100 }, 6, 8, 0);
+				3, 6, 100, 100 }, 6, 8, 0);*/
 	}
 
 	private static void testWriteSequence(int[] sentence, int beginId,
@@ -210,6 +210,11 @@ public class SimpleGapEncoder extends BaseGapEncoder {
 		SimpleGapEncoder encoder = new SimpleGapEncoder(maxGap, 3,
 				new BytesWritable());
 		encoder.setPartitionId(partitionId);
+		
+		int[] parentsList = {2, 2, 1, 1, 1, 6, 3, 2, 5, 2, 4, 5, 2, 4, 6, 3};
+		int[] parentsListPositions = {0, 0, 0, 0, 0, 1, 2, 2, 3, 4, 5, 6, 7, 9, 12, 14, 15, 16};
+		
+		encoder.setParentsList(parentsListPositions, parentsList);
 
 		// print sentence
 		System.out.println();

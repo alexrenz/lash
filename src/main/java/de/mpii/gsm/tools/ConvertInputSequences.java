@@ -89,6 +89,7 @@ public class ConvertInputSequences extends Configured implements Tool {
 		}
 
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+			
 
 			OpenObjectIntHashMap<String> wordCounts = new OpenObjectIntHashMap<String>();
 
@@ -97,15 +98,18 @@ public class ConvertInputSequences extends Configured implements Tool {
 			for (int i = 1; i < terms.length; ++i) {
 				String term = terms[i];
 				wordCounts.adjustOrPutValue(term, +1, +1);
-
-				for(String ancestor : ancestors.get(term)) {
-					wordCounts.adjustOrPutValue(ancestor, +1, +1);
+				
+				if(ancestors.containsKey(term)) {
+					for(String ancestor : ancestors.get(term)) {
+						wordCounts.adjustOrPutValue(ancestor, +1, +1);
+					}
 				}
 			}
 			
 
 			for (String term : wordCounts.keys()) {
 				outKey.set(term);
+
 				outValue.setFrequency(wordCounts.get(term));
 				outValue.setAncestors(ancestors.containsKey(term) ? ancestors.get(term) : new String[0] );
 				context.write(outKey, outValue);
@@ -228,7 +232,7 @@ public class ConvertInputSequences extends Configured implements Tool {
 				String ancestorIds = "";
 				if(ancestors.containsKey(term) && ancestors.get(term).length > 0) {
 					for(int i = 0; i<ancestors.get(term).length; i++) {
-						ancestorIds += tids.get(ancestors.get(term)[i]) + (i==ancestors.get(term).length-1 ? "" : ", ");
+						ancestorIds += tids.get(ancestors.get(term)[i]) + (i==ancestors.get(term).length-1 ? "" : ",");
 					}
 				}
 				else {
@@ -247,7 +251,6 @@ public class ConvertInputSequences extends Configured implements Tool {
 				);*/
 
 				context.write(outKey, outValue);
-				LOGGER.info(outKey.toString() + ": " + outValue.toString());
 			}
 			
 

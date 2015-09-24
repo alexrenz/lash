@@ -93,18 +93,37 @@ public class Dictionary {
 			br = new BufferedReader(new InputStreamReader(dis));
 		}
 		
-		OpenIntIntHashMap parentMap = new OpenIntIntHashMap();
-		
 		String line = null;
-
+		
+		IntArrayList tempParentsList = new IntArrayList();
+		int currentPosition = 0;
+		int maxItemId = 0;
+		HashMap<Integer, Integer> tempParentsListPositions = new HashMap<Integer, Integer>(); 
+		
+		// dictionary lines are sorted by id
 		while ((line = br.readLine()) != null) {
 			String[] splits = line.split("\t");
+			
+			System.out.println(splits[3] + ": " + splits[0]);
 			int itemId = Integer.parseInt(splits[3]);
 			int itemSupport = Integer.parseInt(splits[2]);
 			
-			int parentId = Integer.parseInt(splits[4]);
+			String[] ancestorIds;
+			if(splits.length >= 5) {
+				ancestorIds = splits[4].split(",");
+			}
+			else {
+				ancestorIds = new String[0];
+			}
+			//Integer.parseInt(splits[4]);
+
+			tempParentsListPositions.put(itemId, currentPosition);
+			maxItemId = Math.max(maxItemId, itemId);
 			
-			parentMap.put(itemId, parentId);
+			for(String ancestor: ancestorIds) {
+				tempParentsList.add(Integer.parseInt(ancestor.trim()));
+				currentPosition++;
+			}
 
 			if (itemSupport >= minSupport) {
 				items.add(PrimitiveUtils.combine(itemId, itemSupport));
@@ -112,18 +131,43 @@ public class Dictionary {
 			itemIdToItemMap.put(itemId, splits[0]);
 		}
 		
-		Collections.sort(items, new MyComparator());
+		//Collections.sort(items, new MyComparator());
 		
-		System.out.println("ERROR: dictionary load does not work at the moment");
-		System.exit(1);
-		/* TODO: convert to new data structure
-		parentIds = new int[parentMap.size() + 1];
-		IntArrayList keyList = parentMap.keys();
-		for(int i = 0; i < keyList.size(); ++i) {
-			int item = keyList.get(i); 
-			parentIds[item] = parentMap.get(item);
+		
+		parentsList = tempParentsList.toArray(new int[tempParentsList.size()]);
+		parentsListPositions = new int[maxItemId+2];  // 0 not used + dummy item at the end
+		
+		for(Entry<Integer, Integer> entry : tempParentsListPositions.entrySet()) {
+			parentsListPositions[entry.getKey()] = entry.getValue();
 		}
-		*/ 
+		
+		// Add dummy item at the end of the positions list to make access easier for the last item
+		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
+		
+		
+		// Test the order: for each item, all parents need to have a lower id
+		for(int i=1; i<items.size()+1; i++) {
+			// check all parents
+			for(int pos=parentsListPositions[i]; 
+					pos<parentsListPositions[i+1]; 
+					pos++) {
+				if(parentsList[pos] > i) {
+					System.out.println("ERROR: Item " + i + " has parent " + parentsList[pos] + ", which as a higher ID.");
+					System.exit(1);
+				}
+				
+			}
+		}
+		
+		/*System.out.println("parentsList loaded:");
+		for(int i=0; i<parentsList.length; i++) {
+			System.out.println(i + ": " + parentsList[i]);
+		}
+		
+		System.out.println("parentsListPositions loaded:");
+		for(int i=0; i<parentsListPositions.length; i++) {
+			System.out.println(i + ": " + parentsListPositions[i]);
+		}*/
 	}
 
 	/**

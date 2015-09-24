@@ -20,9 +20,11 @@ import org.apache.hadoop.mapreduce.Reducer;
 
 
 
+
 import de.mpii.gsm.localmining.PSMwithIndex;
 import de.mpii.gsm.taxonomy.*;
 import de.mpii.gsm.writer.DistributedGsmWriter;
+import de.mpii.gsm.utils.Dictionary;
 import de.mpii.gsm.utils.PrimitiveUtils;
 import de.mpii.gsm.utils.IntArrayWritable;
 
@@ -44,6 +46,8 @@ public class GsmReducer extends Reducer<BytesWritable, IntWritable, IntArrayWrit
     int prevPartitionId = -1;
 
     int prevSupport = 0;
+    
+    Dictionary dictionary = new Dictionary();
 
     // instance of the GSM algorithm initialized with dummy values
 	  PSMwithIndex gsm = new PSMwithIndex();
@@ -57,7 +61,7 @@ public class GsmReducer extends Reducer<BytesWritable, IntWritable, IntArrayWrit
         int sigma = context.getConfiguration().getInt("de.mpii.gsm.partitioning.sigma", -1);
         int gamma = context.getConfiguration().getInt("de.mpii.gsm.partitioning.gamma", -1);
         int lambda = context.getConfiguration().getInt("de.mpii.gsm.partitioning.lambda", -1);
-        int[] itemToParent = null;
+        //multipleParents int[] itemToParent = null;
         gsm.clear();
         
         prevPartitionId = -1;
@@ -70,10 +74,18 @@ public class GsmReducer extends Reducer<BytesWritable, IntWritable, IntArrayWrit
             partitionToItems = (HashMap<Integer, Long>) is.readObject();
             is.close();
             
-            is = new ObjectInputStream(new FileInputStream("itemToParent"));
+            /*is = new ObjectInputStream(new FileInputStream("itemToParent"));
             itemToParent = (int[]) is.readObject();
-			is.close();
+			is.close();*/
             
+			// multipleParents
+			is = new ObjectInputStream(new FileInputStream("parentsListPositions"));
+			dictionary.parentsListPositions = (int[]) is.readObject();
+			is.close();
+			
+			is = new ObjectInputStream(new FileInputStream("parentsList"));
+			dictionary.parentsList = (int[]) is.readObject();
+			is.close();
             
         } catch (IOException e) {
             GsmJob.LOGGER.severe("Reducer: error reading from dCache: " + e);
@@ -81,7 +93,7 @@ public class GsmReducer extends Reducer<BytesWritable, IntWritable, IntArrayWrit
             GsmJob.LOGGER.severe("Reducer: deserialization exception: " + e);
         }
         
-        gsm.setParameters(sigma, gamma, lambda, new NytTaxonomy(itemToParent));
+        gsm.setParameters(sigma, gamma, lambda, dictionary);
         
     }
 

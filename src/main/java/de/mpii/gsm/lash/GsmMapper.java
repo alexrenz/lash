@@ -18,6 +18,7 @@ import de.mpii.gsm.lash.encoders.SimpleGapEncoder;
 import de.mpii.gsm.lash.encoders.SplitGapEncoder;
 import de.mpii.gsm.taxonomy.NytTaxonomy;
 import de.mpii.gsm.taxonomy.Taxonomy;
+import de.mpii.gsm.utils.Dictionary;
 import de.mpii.gsm.utils.PrimitiveUtils;
 import de.mpii.gsm.utils.IntArrayWritable;
 
@@ -30,8 +31,7 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 	Map<Integer, Long> partitionToItems;
 
 	//int[] itemToParent;
-	public int[] parentsListPositions;
-	public int[] parentsList;
+	Dictionary dictionary = new Dictionary();
 
 	/**
 	 * a set containing the partitions for which the current transaction has
@@ -105,13 +105,13 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 			//itemToParent = (int[]) is.readObject();
 			//is.close();
 			
-			// multipleParent
+			// multipleParents
 			is = new ObjectInputStream(new FileInputStream("parentsListPositions"));
-			parentsListPositions = (int[]) is.readObject();
+			dictionary.parentsListPositions = (int[]) is.readObject();
 			is.close();
 			
 			is = new ObjectInputStream(new FileInputStream("parentsList"));
-			parentsList = (int[]) is.readObject();
+			dictionary.parentsList = (int[]) is.readObject();
 			is.close();
 
 		} catch (IOException e) {
@@ -136,8 +136,8 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 		//simpleEncoder.setTaxonomy(taxonomy);
 		//splitEncoder.setTaxonomy(taxonomy);
 		//multipleParents 
-		simpleEncoder.setParentsList(parentsListPositions, parentsList);
-		splitEncoder.setParentsList(parentsListPositions, parentsList);
+		simpleEncoder.setParentsList(dictionary.parentsListPositions, dictionary.parentsList);
+		splitEncoder.setParentsList(dictionary.parentsListPositions, dictionary.parentsList);
 		
 		partitionToPivotRange = new long[totalPartitions + 1];
 
@@ -184,10 +184,10 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 					//	item = taxonomy.getParent(item);
 					
 					// Is there one more ancestor?
-					if (parentsListPositions[startItem] + pos < parentsListPositions[startItem+1]) {
+					if (dictionary.parentsListPositions[startItem] + pos < dictionary.parentsListPositions[startItem+1]) {
 						
 						// Get the next ancestor
-						item = parentsList[parentsListPositions[startItem] + pos];
+						item = dictionary.parentsList[dictionary.parentsListPositions[startItem] + pos];
 						pos++;
 						
 						continue;
@@ -212,8 +212,8 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 				if (!isFirstOccurrence) {
 					// continue;
 
-					if (parentsListPositions[startItem] + pos < parentsListPositions[startItem+1]) {
-						item = parentsList[parentsListPositions[startItem] + pos];
+					if (dictionary.parentsListPositions[startItem] + pos < dictionary.parentsListPositions[startItem+1]) {
+						item = dictionary.parentsList[dictionary.parentsListPositions[startItem] + pos];
 						pos++;
 						continue;
 					} else
@@ -236,8 +236,8 @@ public class GsmMapper extends Mapper<LongWritable, IntArrayWritable, BytesWrita
 				}
 				emit(partitionId, context);
 
-				if (parentsListPositions[startItem] + pos < parentsListPositions[startItem+1]) {
-					item = parentsList[parentsListPositions[startItem] + pos];
+				if (dictionary.parentsListPositions[startItem] + pos < dictionary.parentsListPositions[startItem+1]) {
+					item = dictionary.parentsList[dictionary.parentsListPositions[startItem] + pos];
 					pos++;
 					// System.out.println("item Parent = " + item);
 				} else {
