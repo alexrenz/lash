@@ -54,6 +54,8 @@ public class PSMwithIndex {
 	int rightLevel = 0;
 
 	int leftLevel = 0;
+	
+	boolean[] generalizesToPivot;
 
 	IntOpenHashSet[][] scanIndex;
 
@@ -110,6 +112,18 @@ public class PSMwithIndex {
 		this.endItem = e;
 		assert (b == e);
 		this.pivotItemId = b;
+		
+		// Pre-compute generalizesToPivot
+		generalizesToPivot = new boolean[this.dictionary.parentsListPositions.length-1];
+		for(int i=1; i<this.dictionary.parentsListPositions.length-1; i++) {
+			for(int pos=dictionary.parentsListPositions[i]; pos<dictionary.parentsListPositions[i+1]; pos++) {
+				if(dictionary.parentsList[pos] == pivotItemId) {
+					generalizesToPivot[i] = true;
+					break;
+				}
+			}
+		}
+		
 	}
 
 	public void scanDatabase(String dbFile) throws Exception {
@@ -155,17 +169,19 @@ public class PSMwithIndex {
 			
 			// multipleParents: there are cases where we didn't generalize an item, so the item 
 			// in the transaction might not be the pivot item. But it generalizes to the pivot item
-			boolean generalizesToPivotItem = false;
-			for(int pos=dictionary.parentsListPositions[itemId]; pos<dictionary.parentsListPositions[itemId+1]; pos++) {
-				if(dictionary.parentsList[pos] == pivotItemId) {
-					generalizesToPivotItem = true;
-				}
-			}
+			// --> this check is now precomputed above and stored in generalizesToPivot as a bit vector
+			
+			//boolean generalizesToPivotItem = false;
+			//for(int pos=dictionary.parentsListPositions[itemId]; pos<dictionary.parentsListPositions[itemId+1]; pos++) {
+			//	if(dictionary.parentsList[pos] == pivotItemId) {
+			//		generalizesToPivotItem = true;
+			//	}
+			//}
 			
 			// Old check: (for single parent data structure)
 			//if (pivotItemId == transaction[i]) { // pivot item(s)
 			
-			if(pivotItemId == transaction[i] || generalizesToPivotItem) {  // potential for performance improvement: don't do ancestor check if item is pivot
+			if(pivotItemId == transaction[i] || generalizesToPivot[transaction[i]]) {
 				pivotItem.addTransaction(transactionId, support, i, i);
 
 			}
@@ -192,7 +208,7 @@ public class PSMwithIndex {
 		_noOfFrequentPatterns = 0;
 		totalSequences = 0;
 		
-		System.out.println("Starting mining for pivotItemId " + pivotItemId + ". Size of transactionIds: " + pivotItem.transactionIds.size());
+		//System.out.println("Starting mining for pivotItemId " + pivotItemId + ". Size of transactionIds: " + pivotItem.transactionIds.size());
 
 
 		int[] prefix = new int[] { pivotItemId };
