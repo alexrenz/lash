@@ -468,7 +468,9 @@ public class Dictionary {
 	public void writeJSONDictionary(String writePath) {
 		// TODO: implement
 		// Write dictionary
-		/* old code from Sequentialmode.java
+		
+		System.out.println("Write dictionary: still old (tabular) format.");
+		
 		if (config.isKeepFiles()) {
 			String outputFileName = config.getKeepFilesPath();
 
@@ -483,16 +485,29 @@ public class Dictionary {
 				BufferedWriter br1 = new BufferedWriter(new OutputStreamWriter(out));
 
 				// Perform the writing to the file
-				for (String term : terms) {
-					int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
+				//for (String term : terms) {
+				for(String term: tids.keys()) {
+					//int parentId = (parents.get(term) == null) ? 0 : tids.get(parents.get(term));
+					int tid = tids.get(term);
+					StringBuilder sb = new StringBuilder();
+					// Get ancestors
+					for(int pos=parentsListPositions[tid]; 
+							pos<parentsListPositions[tid+1]; 
+							pos++) {
+						sb.append(parentsList[pos]);
+						if(pos < parentsListPositions[tid+1]-1) {
+							sb.append(",");
+						}
+						
+					}
 
-					br1.write(term + "\t" + cfs.get(term) + "\t" + dfs.get(term) + "\t" + tids.get(term) + "\t" + parentId + "\n");
+					br1.write(term + "\t" + cfs.get(term) + "\t" + dfs.get(term) + "\t" + tid + "\t" + sb.toString() + "\n");
 				}
 				br1.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-		} */
+		} 
 	}
 
 
