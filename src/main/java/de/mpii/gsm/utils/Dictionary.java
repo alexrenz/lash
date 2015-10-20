@@ -42,8 +42,8 @@ public class Dictionary {
 	//Combines itemId and support value in a long value
 	protected ArrayList<Long> items = new ArrayList<Long>();
 	
-	public int[] parentsListPositions;
-	public int[] parentsList;
+	public int[] ancestorsListPositions;
+	public int[] ancestorsList;
 	
 	protected OpenIntObjectHashMap<String> itemIdToItemMap = new OpenIntObjectHashMap<String>();
 
@@ -134,25 +134,25 @@ public class Dictionary {
 		//Collections.sort(items, new MyComparator());
 		
 		
-		parentsList = tempParentsList.toArray(new int[tempParentsList.size()]);
-		parentsListPositions = new int[maxItemId+2];  // 0 not used + dummy item at the end
+		ancestorsList = tempParentsList.toArray(new int[tempParentsList.size()]);
+		ancestorsListPositions = new int[maxItemId+2];  // 0 not used + dummy item at the end
 		
 		for(Entry<Integer, Integer> entry : tempParentsListPositions.entrySet()) {
-			parentsListPositions[entry.getKey()] = entry.getValue();
+			ancestorsListPositions[entry.getKey()] = entry.getValue();
 		}
 		
 		// Add dummy item at the end of the positions list to make access easier for the last item
-		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
+		ancestorsListPositions[ancestorsListPositions.length - 1] = ancestorsList.length;
 		
 		
 		// Test the order: for each item, all parents need to have a lower id
 		for(int i=1; i<items.size()+1; i++) {
 			// check all parents
-			for(int pos=parentsListPositions[i]; 
-					pos<parentsListPositions[i+1]; 
+			for(int pos=ancestorsListPositions[i]; 
+					pos<ancestorsListPositions[i+1]; 
 					pos++) {
-				if(parentsList[pos] > i) {
-					System.out.println("ERROR: Item " + i + " has parent " + parentsList[pos] + ", which as a higher ID.");
+				if(ancestorsList[pos] > i) {
+					System.out.println("ERROR: Item " + i + " has parent " + ancestorsList[pos] + ", which as a higher ID.");
 					System.exit(1);
 				}
 				
@@ -243,10 +243,10 @@ public class Dictionary {
 		// Store parents in two-array data structure: position list and parent list
 		IntArrayList tempParentsList = new IntArrayList();
 		int currentPosition = 0;
-		parentsListPositions = new int[terms.length+2]; // +1 as tids start with 1, other +1 for dummy element at the end
+		ancestorsListPositions = new int[terms.length+2]; // +1 as tids start with 1, other +1 for dummy element at the end
 		
 		for (int i=1; i<terms.length+1; i++) {
-			parentsListPositions[i] = currentPosition;
+			ancestorsListPositions[i] = currentPosition;
 			String term = terms[i-1];
 			
 			// collect ancestors of the current item in a set
@@ -259,7 +259,7 @@ public class Dictionary {
 					itemParents.add(parentId);
 					
 					// add the ancestors of this parent (which we have determined in previous loop iterations)
-					for(int pos=parentsListPositions[parentId]; pos<parentsListPositions[parentId + 1]; pos++) {
+					for(int pos=ancestorsListPositions[parentId]; pos<ancestorsListPositions[parentId + 1]; pos++) {
 									// Note: A parent of element i is max. (i-1), therefore this is max. i, which is already set
 						itemParents.add(tempParentsList.get(pos));
 					}
@@ -273,20 +273,20 @@ public class Dictionary {
 			}
 			
 		}
-		parentsList = tempParentsList.toArray(new int[tempParentsList.size()]);
+		ancestorsList = tempParentsList.toArray(new int[tempParentsList.size()]);
 		
 		// Add dummy item at the end of the positions list to make access easier for the last item
-		parentsListPositions[parentsListPositions.length - 1] = parentsList.length;
+		ancestorsListPositions[ancestorsListPositions.length - 1] = ancestorsList.length;
 		
 		
 		// Test the order: for each item, all parents need to have a lower id
 		for(int i=1; i<terms.length+1; i++) {
 			// check all parents
-			for(int pos=parentsListPositions[i]; 
-					pos<parentsListPositions[i+1]; 
+			for(int pos=ancestorsListPositions[i]; 
+					pos<ancestorsListPositions[i+1]; 
 					pos++) {
-				if(parentsList[pos] > i) {
-					System.out.println("ERROR: Item " + i + " has parent " + parentsList[pos] + ", which as a higher ID.");
+				if(ancestorsList[pos] > i) {
+					System.out.println("ERROR: Item " + i + " has parent " + ancestorsList[pos] + ", which as a higher ID.");
 					System.exit(1);
 				}
 				
@@ -491,11 +491,11 @@ public class Dictionary {
 					int tid = tids.get(term);
 					StringBuilder sb = new StringBuilder();
 					// Get ancestors
-					for(int pos=parentsListPositions[tid]; 
-							pos<parentsListPositions[tid+1]; 
+					for(int pos=ancestorsListPositions[tid]; 
+							pos<ancestorsListPositions[tid+1]; 
 							pos++) {
-						sb.append(parentsList[pos]);
-						if(pos < parentsListPositions[tid+1]-1) {
+						sb.append(ancestorsList[pos]);
+						if(pos < ancestorsListPositions[tid+1]-1) {
 							sb.append(",");
 						}
 						
@@ -514,8 +514,8 @@ public class Dictionary {
 	public void clear() {
 		tids.clear();
 		parents.clear();
-		parentsListPositions = null;
-		parentsList = null;
+		ancestorsListPositions = null;
+		ancestorsList = null;
 	}
 	
 	public OpenIntObjectHashMap<String> getItemIdToName(){

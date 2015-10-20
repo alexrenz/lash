@@ -129,10 +129,10 @@ public class Dfs {
 			globalItems.addItem(itemId, transactionId, support, i);
 			
 			// Also update globalItems for all the parents of this item
-			for(int pos=dictionary.parentsListPositions[itemId]; 
-					pos<dictionary.parentsListPositions[itemId+1]; 
+			for(int pos=dictionary.ancestorsListPositions[itemId]; 
+					pos<dictionary.ancestorsListPositions[itemId+1]; 
 					pos++) {
-				globalItems.addItem(dictionary.parentsList[pos], transactionId, support, i);
+				globalItems.addItem(dictionary.ancestorsList[pos], transactionId, support, i);
 			}
 		}
 	}
@@ -188,10 +188,10 @@ public class Dfs {
 					
 					// Also consider parents of current item
 					int parentId = 0;
-					for(int pos=dictionary.parentsListPositions[itemId]; 
-							pos<dictionary.parentsListPositions[itemId+1]; 
+					for(int pos=dictionary.ancestorsListPositions[itemId]; 
+							pos<dictionary.ancestorsListPositions[itemId+1]; 
 							pos++) {
-						parentId = dictionary.parentsList[pos];
+						parentId = dictionary.ancestorsList[pos];
 						if (globalItems.itemIndex.get(parentId).support >= sigma)
 							localItems.addItem(parentId, transactionId, transactionSupports.get(transactionId), (position + j + 1));
 						

@@ -114,10 +114,10 @@ public class PSMwithIndex {
 		this.pivotItemId = b;
 		
 		// Pre-compute generalizesToPivot
-		generalizesToPivot = new boolean[this.dictionary.parentsListPositions.length-1];
-		for(int i=1; i<this.dictionary.parentsListPositions.length-1; i++) {
-			for(int pos=dictionary.parentsListPositions[i]; pos<dictionary.parentsListPositions[i+1]; pos++) {
-				if(dictionary.parentsList[pos] == pivotItemId) {
+		generalizesToPivot = new boolean[this.dictionary.ancestorsListPositions.length-1];
+		for(int i=1; i<this.dictionary.ancestorsListPositions.length-1; i++) {
+			for(int pos=dictionary.ancestorsListPositions[i]; pos<dictionary.ancestorsListPositions[i+1]; pos++) {
+				if(dictionary.ancestorsList[pos] == pivotItemId) {
 					generalizesToPivot[i] = true;
 					break;
 				}
@@ -188,8 +188,8 @@ public class PSMwithIndex {
 			tempSet.add(itemId);
 			
 			// add all ancestors of the current item:
-			for(int pos=dictionary.parentsListPositions[itemId]; pos<dictionary.parentsListPositions[itemId+1]; pos++) {
-				tempSet.add(dictionary.parentsList[pos]);
+			for(int pos=dictionary.ancestorsListPositions[itemId]; pos<dictionary.ancestorsListPositions[itemId+1]; pos++) {
+				tempSet.add(dictionary.ancestorsList[pos]);
 			}
 			
 			//while (taxonomy.hasParent(itemId)) {
@@ -270,8 +270,8 @@ public class PSMwithIndex {
 					}
 					*/
 					int origItemId = itemId;
-					for(int pos=dictionary.parentsListPositions[origItemId]; pos<dictionary.parentsListPositions[origItemId+1]; pos++) {
-						itemId = dictionary.parentsList[pos];
+					for(int pos=dictionary.ancestorsListPositions[origItemId]; pos<dictionary.ancestorsListPositions[origItemId+1]; pos++) {
+						itemId = dictionary.ancestorsList[pos];
 						if ((itemId < pivotItemId) && globallyFrequentItems.get(itemId) >= sigma)
 							localRightItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), leftPosition,
 									(rightPosition + j + 1));
@@ -361,8 +361,8 @@ public class PSMwithIndex {
 									(leftPosition - j - 1), rightPosition);
 					}*/
 					int origItemId = itemId;
-					for(int pos=dictionary.parentsListPositions[origItemId]; pos<dictionary.parentsListPositions[origItemId+1]; pos++) {
-						itemId = dictionary.parentsList[pos];
+					for(int pos=dictionary.ancestorsListPositions[origItemId]; pos<dictionary.ancestorsListPositions[origItemId+1]; pos++) {
+						itemId = dictionary.ancestorsList[pos];
 						if ((itemId <= pivotItemId) && globallyFrequentItems.get(itemId) >= sigma)
 							localLeftItems.addItem(itemId, transactionId, transactionSupports.get(transactionId),
 									(leftPosition - j - 1), rightPosition);
@@ -460,8 +460,8 @@ public class PSMwithIndex {
 									(rightPosition + j + 1));
 					}*/
 					int origItemId = itemId;
-					for(int pos=dictionary.parentsListPositions[origItemId]; pos<dictionary.parentsListPositions[origItemId+1]; pos++) {
-						itemId = dictionary.parentsList[pos];
+					for(int pos=dictionary.ancestorsListPositions[origItemId]; pos<dictionary.ancestorsListPositions[origItemId+1]; pos++) {
+						itemId = dictionary.ancestorsList[pos];
 						if ((itemId < pivotItemId) && isRightFrequent((prefix.length - leftLevel), itemId))
 							localRightItems.addItem(itemId, transactionId, transactionSupports.get(transactionId), leftPosition,
 									(rightPosition + j + 1));

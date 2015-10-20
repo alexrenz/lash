@@ -80,11 +80,11 @@ public class GsmReducer extends Reducer<BytesWritable, IntWritable, IntArrayWrit
             
 			// multipleParents
 			is = new ObjectInputStream(new FileInputStream("parentsListPositions"));
-			dictionary.parentsListPositions = (int[]) is.readObject();
+			dictionary.ancestorsListPositions = (int[]) is.readObject();
 			is.close();
 			
 			is = new ObjectInputStream(new FileInputStream("parentsList"));
-			dictionary.parentsList = (int[]) is.readObject();
+			dictionary.ancestorsList = (int[]) is.readObject();
 			is.close();
             
         } catch (IOException e) {

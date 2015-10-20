@@ -176,14 +176,14 @@ public class GsmJob {
 			// parentsListPositions
 			String parentsListPositionsInfoObject = "parentsListPositions";
 			os = new ObjectOutputStream(fs.create(new Path(parentsListPositionsInfoObject)));
-			os.writeObject(dictionary.parentsListPositions);
+			os.writeObject(dictionary.ancestorsListPositions);
 			os.close();
 			DistributedCache.addCacheFile(new URI(parentsListPositionsInfoObject + "#parentsListPositions"), conf);
 			
 			// parentsList
 			String parentsListInfoObject = "parentsList";
 			os = new ObjectOutputStream(fs.create(new Path(parentsListInfoObject)));
-			os.writeObject(dictionary.parentsList);
+			os.writeObject(dictionary.ancestorsList);
 			os.close();
 			DistributedCache.addCacheFile(new URI(parentsListInfoObject + "#parentsList"), conf);
 			
